@@ -1,0 +1,33 @@
+# Example TARS project configuration
+# Copy this file and customize for your project
+
+repo: "username/my-project"
+enabled: false                   # Set to true to activate
+
+git:
+  strategy: "branch-pr"         # branch-pr | auto-merge | direct-main
+  base_branch: "main"
+  pr_labels: ["tars-auto"]
+
+build:
+  type: "generic"               # generic | xcode
+  command: null                  # e.g. "npm run build", "cargo build"
+
+test:
+  command: null                  # e.g. "npm test", "pytest"
+
+issues:
+  enabled: false
+  labels: ["tars", "auto-fix"]
+
+auto_discover:
+  enabled: false
+  interval: 86400               # seconds between discovery runs
+  focus_areas:
+    - "test coverage"
+    - "error handling"
+    - "code cleanup"
+
+claude:
+  model: "sonnet"               # sonnet | opus
+  max_turns: 20

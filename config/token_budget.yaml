@@ -1,0 +1,13 @@
+# TARS Token Budget Configuration
+# Claude Max plan: 5-hour rolling window, ~88k tokens per window
+
+daily_limit: 50000000             # Effectively unlimited — let Claude's own rate limits be the gate
+
+# No throttling — run full speed, TARS will pause when Claude rate-limits
+peak_hours:
+  start: 0
+  end: 0
+peak_multiplier: 1.0
+
+rate_limit_backoff: 300           # Wait 5 min when rate-limited (window resets rolling)
+warning_threshold: 0.95

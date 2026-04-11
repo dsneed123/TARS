@@ -1,0 +1,29 @@
+# TARS Discord Configuration
+# Copy to discord.yaml and fill in your values.
+#
+# Webhook (one-way logging):
+#   1. Go to Discord Server Settings > Integrations > Webhooks
+#   2. Create a new webhook, copy the URL
+#
+# Bot (bidirectional commands):
+#   1. Create a bot at https://discord.com/developers/applications
+#   2. Enable MESSAGE CONTENT intent under Bot settings
+#   3. Copy the bot token
+#   4. Invite with: OAuth2 > URL Generator > bot scope > Send Messages + Read Messages
+
+# --- Webhook (one-way logging) ---
+webhook_url: ""                   # Your Discord webhook URL
+username: "TARS"
+avatar_url: ""                    # Optional avatar URL
+
+# What events to notify on
+notify_on:
+  - "task_complete"
+  - "task_failed"
+  - "circuit_breaker"
+  - "daily_summary"
+
+# --- Bot (bidirectional commands) ---
+bot_token: ""                     # Discord bot token
+command_channel_id: ""            # Channel ID to listen in (leave empty for all channels)
+command_prefix: "!"               # Bot command prefix

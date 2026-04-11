@@ -1,0 +1,159 @@
+tasks:
+- id: ed-01
+  title: Scaffold FastAPI backend with scanning engine and WebSocket real-time updates
+  description: >
+    Create the backend at backend/:
+    1. backend/requirements.txt — fastapi, uvicorn, websockets, yfinance, numpy, pandas, apscheduler
+    2. backend/app/main.py — FastAPI app with:
+       - CORS enabled for frontend
+       - WebSocket endpoint /ws for real-time price + signal pushes
+       - Lifespan that starts the scanning scheduler
+    3. backend/app/scanner.py — port over the scanning logic from lib/stock_scanner.py
+       but restructured as a class:
+       - StockScanner: scans stocks every 5 min during market hours (9:30-4 ET)
+       - CryptoScanner: scans crypto every 1 minute, 24/7
+       - Both use the same technical analysis (RSI, MACD, Bollinger, MAs, volume)
+       - Store active signals in memory with timestamps
+       - Push new signals to all connected WebSocket clients
+    4. backend/app/chart_data.py — endpoints to serve OHLCV candlestick data:
+       - GET /api/chart/{ticker}?interval=5m&period=1d — intraday candles
+       - GET /api/chart/{ticker}?interval=1d&period=3mo — daily candles
+       - Returns JSON array of {time, open, high, low, close, volume}
+    5. backend/app/signals.py — endpoints:
+       - GET /api/signals/stocks — active stock signals
+       - GET /api/signals/crypto — active crypto signals
+       - GET /api/signals/kalshi — active Kalshi signals (from elephant DB)
+       - GET /api/signals/history — past signals with win/loss status
+       Each signal includes: ticker, direction, entry, stop_loss, target_1, target_2,
+       strength, signals list, timestamp, status (active/won/lost/expired)
+    6. backend/app/watchlists.py — the ticker lists for stocks, crypto (all Robinhood crypto)
+  project: elephant-dashboard
+  priority: 200
+  status: pending
+  source: manual
+
+- id: ed-02
+  title: Build React frontend with TradingView charts and signal dashboard
+  description: >
+    Create the frontend at frontend/:
+    1. Vite + React + TypeScript setup
+    2. package.json deps: react, react-router-dom, lightweight-charts (TradingView),
+       @tanstack/react-query, axios, tailwindcss
+    3. Three main tabs in the nav: Stocks | Crypto | Kalshi
+    4. Each tab shows:
+       a. Signal cards grid — each active signal is a card showing:
+          - Ticker name and current price (updating live)
+          - Direction arrow (green up for LONG, red down for SHORT)
+          - Mini sparkline chart (last 24h)
+          - Entry, target, stop-loss prices
+          - Strength badge (color coded)
+          - Time since signal fired
+       b. Click a card to expand into full chart view
+    5. Full chart view:
+       - TradingView Lightweight Charts candlestick chart
+       - Entry point marked with a horizontal line + marker
+       - Target 1 and Target 2 as green dashed horizontal lines with labels
+       - Stop-loss as red dashed horizontal line with label
+       - Buy/sell signal markers (triangles) on the candle where signal fired
+       - Volume bars below
+       - Toggle between 1m, 5m, 15m, 1h, 1d timeframes
+    6. Top bar: total active signals count, last scan time, market status (open/closed)
+    7. Responsive: works on mobile
+    8. Dark theme (trading dashboards should be dark)
+    Use the proxy in vite.config.ts to forward /api to backend at localhost:8300
+  project: elephant-dashboard
+  priority: 190
+  status: pending
+  source: manual
+
+- id: ed-03
+  title: Add real-time WebSocket price updates and live signal notifications
+  description: >
+    Wire up real-time updates between backend and frontend:
+    1. Backend WebSocket at /ws sends JSON messages:
+       - {"type": "price", "ticker": "BTC-USD", "price": 72450.00, "change_pct": -1.2}
+       - {"type": "signal", "data": {full signal object}} when new signal fires
+       - {"type": "signal_update", "ticker": "AAPL", "status": "won"} when target/stop hit
+    2. Frontend WebSocketContext.tsx — connect to /ws, distribute updates to components
+    3. Signal cards update price in real-time (no page refresh)
+    4. New signal notification — toast/popup when a new signal fires
+    5. Sound alert option (toggle in settings) for new signals
+    6. Auto-check if price has hit target or stop-loss:
+       - If current price >= target_1: mark signal as WON, show green checkmark
+       - If current price <= stop_loss (for LONG) or >= stop_loss (for SHORT): mark as LOST
+    7. Backend scanner should push to WebSocket after each scan cycle
+    8. Frontend reconnects WebSocket automatically on disconnect
+  project: elephant-dashboard
+  priority: 180
+  status: pending
+  source: manual
+
+- id: ed-04
+  title: Add Kalshi prediction market tab with signal integration
+  description: >
+    Add Kalshi tab to the dashboard:
+    1. Backend endpoint GET /api/signals/kalshi that reads from the elephant
+       SQLite database (at repos/elephant/backend/elephant.db):
+       - Query trade_signals table for recent signals
+       - Query tracked_traders for whale info
+       - Return signals with trader elephant_score, market ticker, confidence, side
+    2. Frontend Kalshi tab shows:
+       - Active prediction market signals from whale detection
+       - Each signal card: market name, YES/NO direction, confidence %, whale score
+       - Market info: current YES price, expiration date
+       - No candlestick chart (Kalshi doesn't have OHLCV), instead show
+         a probability chart (YES price over time) if data available
+    3. Link to Kalshi market page for each signal
+    4. Show top tracked whales leaderboard (username, score, profit)
+  project: elephant-dashboard
+  priority: 170
+  status: pending
+  source: manual
+
+- id: ed-05
+  title: Add signal history, performance tracking, and P&L dashboard
+  description: >
+    Add a Performance tab to the dashboard:
+    1. Backend tracks every signal from creation to resolution in a SQLite DB
+       (backend/signals.db):
+       - signal_id, ticker, direction, entry_price, target_1, target_2, stop_loss,
+         strength, status (active/won/lost/expired), created_at, resolved_at,
+         exit_price, pnl_pct
+    2. Backend checks active signals every scan cycle — mark won/lost/expired
+    3. Frontend Performance tab shows:
+       - Win rate (overall, last 7d, last 30d)
+       - Total signals, wins, losses, expired
+       - Average gain on wins vs average loss on losses
+       - Profit factor (total wins / total losses)
+       - Best and worst signals
+       - Performance by category: stocks vs crypto vs Kalshi
+       - Equity curve chart (cumulative P&L over time)
+       - Calendar heatmap (green/red days)
+    4. Each signal in history is clickable — shows the chart at time of signal
+       with the entry/target/stop overlaid
+  project: elephant-dashboard
+  priority: 160
+  status: pending
+  source: manual
+
+- id: ed-06
+  title: Add settings page, alert configuration, and deployment scripts
+  description: >
+    Final polish:
+    1. Settings page:
+       - Scan frequency: crypto (1m, 5m, 15m), stocks (5m, 15m, 30m)
+       - Minimum signal strength filter (slider 0-100)
+       - Enable/disable sound alerts
+       - Enable/disable Discord webhook forwarding (keep posting to Discord too)
+       - Custom watchlist: add/remove tickers
+    2. Deployment:
+       - start.sh script that runs both backend (port 8300) and frontend (port 3000)
+       - Or single command: elephant-dashboard start
+       - Production build: frontend npm build served by FastAPI static files
+    3. Discord integration: optionally still post signals to Discord webhook
+       alongside the dashboard
+    4. Mobile PWA: add manifest.json so it can be installed as an app on phone
+  project: elephant-dashboard
+  priority: 150
+  status: pending
+  source: manual

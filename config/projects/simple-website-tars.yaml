@@ -1,0 +1,28 @@
+repo: dsneed123/simple-website-tars
+description: A simple website project managed by TARS
+type: node
+enabled: false
+git:
+  strategy: auto-merge
+  base_branch: main
+  pr_labels: []
+build:
+  type: generic
+  command: npm run build
+test:
+  command: npm test
+issues:
+  enabled: true
+  labels:
+  - bug
+  - enhancement
+auto_discover:
+  enabled: false
+  interval: 86400
+  focus_areas:
+  - test coverage
+  - error handling
+  - code cleanup
+claude:
+  model: sonnet
+  max_turns: 20

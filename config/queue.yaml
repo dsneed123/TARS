@@ -1,0 +1,200 @@
+tasks:
+- id: pm-01
+  title: Add protocol detection and color coding for TCP, UDP, ICMP, DNS, and HTTP
+    traffic
+  description: Extend capture.py to identify protocol types beyond just TCP/UDP. Add
+    DNS query parsing, ICMP detection, and HTTP host extraction from packets. Pass
+    protocol info through WebSocket. Update map.js to color-code polylines by protocol
+    (e.g. blue=HTTP, green=DNS, red=ICMP, yellow=UDP, white=TCP).
+  project: packet-mapper
+  priority: 100
+  status: pending
+- id: pm-02
+  title: Implement real GeoIP database lookup with MaxMind GeoLite2 instead of ip-api.com
+  description: Replace the ip-api.com HTTP lookups in geo.py with local MaxMind GeoLite2-City
+    database using geoip2 library. Add auto-download of the free GeoLite2 database
+    on first run. This eliminates API rate limits and makes lookups instant. Keep
+    ip-api.com as fallback if DB is missing.
+  project: packet-mapper
+  priority: 95
+  status: pending
+- id: pm-03
+  title: Add live connection statistics dashboard panel
+  description: 'Add a stats panel to the UI showing: total packets captured, packets/second
+    rate, top 10 destination countries, top 10 destination IPs, protocol distribution
+    pie chart, and bandwidth estimate. Update the WebSocket to send periodic stats
+    snapshots. Use a simple bar/pie chart (no heavy chart library, use CSS or inline
+    SVG).'
+  project: packet-mapper
+  priority: 90
+  status: pending
+- id: pm-04
+  title: Add connection filtering and search in the UI
+  description: 'Add a filter bar at the top of the sidebar that lets users filter
+    by: protocol type (checkboxes), IP address (text search), country (dropdown),
+    port number. Filters should update the map in real-time, hiding/showing polylines.
+    Add a search box that highlights matching connections on the map.'
+  project: packet-mapper
+  priority: 85
+  status: pending
+- id: pm-05
+  title: Implement connection grouping and heat map overlay
+  description: Group repeated connections to the same destination and show thickness/opacity
+    of polylines based on frequency. Add a heat map layer toggle (using Leaflet.heat
+    plugin) that shows hot spots of connection density on the map. Add toggle buttons
+    in the UI to switch between line view and heat map view.
+  project: packet-mapper
+  priority: 80
+  status: pending
+- id: pm-06
+  title: Add reverse DNS lookup and hostname display
+  description: Perform async reverse DNS lookups on destination IPs and display hostnames
+    in tooltips and sidebar instead of raw IPs where available. Cache DNS results.
+    Show both hostname and IP in the connection details. Add a whois-style info popup
+    when clicking a marker on the map.
+  project: packet-mapper
+  priority: 75
+  status: pending
+- id: pm-07
+  title: Add packet capture export to PCAP and CSV formats
+  description: Add /api/export/pcap and /api/export/csv endpoints that export captured
+    connection data. PCAP export should save raw packets using Scapy's wrpcap. CSV
+    should include timestamp, src_ip, dst_ip, protocol, src_port, dst_port, country,
+    city, hostname. Add export buttons in the UI header.
+  project: packet-mapper
+  priority: 70
+  status: pending
+- id: pm-08
+  title: Add threat intelligence integration for suspicious IP flagging
+  description: Integrate with AbuseIPDB free API or a local blocklist to flag known
+    malicious IPs. Show flagged connections in red with a warning icon on the map
+    and sidebar. Add a threat score display in connection tooltips. Include a summary
+    count of flagged connections in the stats panel.
+  project: packet-mapper
+  priority: 65
+  status: pending
+- id: pm-09
+  title: Add connection timeline and playback feature
+  description: Store connections with timestamps and add a timeline scrubber at the
+    bottom of the map. Users can scrub through time to replay network activity. Add
+    play/pause controls and speed adjustment. Show connections appearing and fading
+    on the map as time progresses.
+  project: packet-mapper
+  priority: 60
+  status: pending
+- id: pm-10
+  title: Add multi-interface support and network interface selector
+  description: Allow capturing on multiple interfaces simultaneously. Add a dropdown
+    in the UI to select which interface(s) to capture from. Show available interfaces
+    via a /api/interfaces endpoint that lists system network interfaces. Allow starting/stopping
+    capture per interface.
+  project: packet-mapper
+  priority: 55
+  status: pending
+- id: si-01
+  title: Fix tests using optional chaining that hide failures
+  description: 'In app.test.ts, assertions like `root.querySelector(''h1'')?.textContent`
+    silently pass as `undefined` if the element is missing, making tests unreliable.
+    Replace with explicit non-null assertions: `expect(root.querySelector(''h1'')).not.toBeNull()`
+    followed by `expect(root.querySelector(''h1'')!.textContent).toBe(''TARS'')`.'
+  project: simple-website-tars
+  priority: 50
+  status: pending
+  source: auto
+- id: si-02
+  title: Add test for main.ts error path
+  description: 'The guard `if (!root) throw new Error(''Root element #app not found'')`
+    in main.ts is completely untested. Add a test that mocks `document.getElementById`
+    to return null and asserts the error is thrown. This is the only error-handling
+    branch in the app and should be covered.'
+  project: simple-website-tars
+  priority: 50
+  status: pending
+  source: auto
+- id: si-03
+  title: Replace innerHTML with DOM API to eliminate XSS surface
+  description: app.ts sets `root.innerHTML` with a template string. While currently
+    safe, this pattern becomes an XSS vector the moment any dynamic data is interpolated.
+    Replace with `document.createElement`/`appendChild` calls or use a tagged template
+    with explicit text-node assignments for all text content.
+  project: simple-website-tars
+  priority: 50
+  status: pending
+  source: auto
+- id: si-04
+  title: Add coverage thresholds to vite.config.ts
+  description: 'No coverage tool or thresholds are configured, so `vitest run` produces
+    no coverage report and regressions go undetected. Add `@vitest/coverage-v8` as
+    a dev dependency and configure `coverage: { provider: ''v8'', thresholds: { lines:
+    80, functions: 80 } }` in vite.config.ts.'
+  project: simple-website-tars
+  priority: 50
+  status: pending
+  source: auto
+- id: si-05
+  title: Validate renderApp parameter type at runtime
+  description: 'renderApp accepts `root: HTMLElement` but TypeScript types are erased
+    at runtime. If called from a non-TypeScript context or after a bad cast, silent
+    failures occur. Add a runtime guard: `if (!(root instanceof HTMLElement)) throw
+    new TypeError(''renderApp: root must be an HTMLElement'')` and add a corresponding
+    test case.'
+  project: simple-website-tars
+  priority: 50
+  status: pending
+  source: auto
+- id: si-06
+  title: Add unit tests for main.ts error handling and DOM initialization
+  description: 'src/main.ts is completely untested. Add tests in src/main.test.ts
+    using Vitest + jsdom to cover: (1) the happy path where #app exists and renderApp
+    is called, (2) the error path where #app is missing and the thrown Error is caught.
+    Mock renderApp to isolate the test. This brings the untested entry point under
+    coverage.'
+  project: simple-website-tars
+  priority: 50
+  status: pending
+  source: auto
+- id: si-07
+  title: Add error boundary to renderApp for DOM query failures
+  description: 'In src/app.ts, renderApp uses querySelector(''#status'') and sets
+    innerHTML without null checks. If the DOM structure ever diverges (e.g. a refactor
+    removes the status element), this silently fails. Add null guards: if querySelector
+    returns null, throw a descriptive Error (e.g. ''renderApp: #status element not
+    found''). This makes failures loud and debuggable instead of silent.'
+  project: simple-website-tars
+  priority: 50
+  status: pending
+  source: auto
+- id: si-08
+  title: Add GitHub Actions CI workflow for lint, test, and build
+  description: 'There is no CI pipeline. Create .github/workflows/ci.yml that runs
+    on push and pull_request to main. Steps: checkout, setup Node (version from package.json
+    engines field or 20.x), npm ci, npm run lint, npm test, npm run build. This ensures
+    the project stays green and acts as a gate for future TARS-submitted PRs.'
+  project: simple-website-tars
+  priority: 50
+  status: pending
+  source: auto
+- id: si-09
+  title: Extract status update logic into a testable setStatus utility
+  description: 'In src/app.ts, the status update (querySelector + textContent + classList)
+    is inlined inside renderApp, making it impossible to test independently or reuse.
+    Extract it into a standalone function setStatus(root: HTMLElement, text: string,
+    cssClass: string): void in src/app.ts. Update renderApp to call setStatus. Add
+    tests in src/app.test.ts for setStatus directly: verify textContent is set, class
+    is applied, and that it throws when the element is missing.'
+  project: simple-website-tars
+  priority: 50
+  status: pending
+  source: auto
+- id: si-10
+  title: Enable strict ESLint rules for consistent code style
+  description: 'eslint.config.js only extends the recommended presets. Add explicit
+    rules to enforce consistency: ''no-console'': ''warn'', ''@typescript-eslint/explicit-function-return-type'':
+    ''error'' (to enforce return type annotations on all exported functions), and
+    ''@typescript-eslint/no-explicit-any'': ''error''. Then fix any violations in
+    src/. This hardens the codebase against type-unsafe patterns before the project
+    grows.'
+  project: simple-website-tars
+  priority: 50
+  status: pending
+  source: auto

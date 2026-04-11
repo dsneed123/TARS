@@ -1,0 +1,73 @@
+repo: dsneed123/rapid-scuba
+description: "Rapid Scuba \u2014 Seattle's underwater welding and hull cleaning company\
+  \ website. React + Vite + TypeScript multi-page site deployed to GitHub Pages via\
+  \ gh-pages branch. Contact: 206-240-2687. Located in Seattle, WA. ADCI-certified\
+  \ commercial divers, AWS D3.6 underwater welders, OSHA 29 CFR 1910.430 compliant.\
+  \ $1M+ liability insurance.\nBUSINESS CONTEXT: Rapid Scuba serves all Seattle-area\
+  \ marinas including Shilshole Bay Marina (1,400+ slips), Eastlake Marina, Portage\
+  \ Bay, Lake Union, Lake Washington, Elliott Bay, Bainbridge Island. Target market:\
+  \ private boat owners (60-90 day cleaning cycle in Puget Sound), yacht/luxury vessel\
+  \ owners (45ft+), marina operators (preferred vendor contracts), commercial fleets\
+  \ (tugs, ferries, charter boats), port/waterfront infrastructure.\nPRICING PACKAGES:\
+  \ Small boat (up to 30ft) $3,000-$3,500 includes cleaning, scrubbing, minimal welding,\
+  \ standard emergency repair. Medium boat (31-60ft) $3,500-$4,250 includes extensive\
+  \ cleaning, scrubbing, moderate welding, emergency repair. Large boat (61ft+) $4,250-$5,000+\
+  \ includes full cleaning, scrubbing, extensive welding, priority emergency repair.\
+  \ Add-ons: propeller polish from $75, zinc anode from $30/anode, inspection from\
+  \ $200, standalone welding $300-500/hr, emergency call-out from $500.\nSEO STRATEGY:\
+  \ Dominate high-intent local keywords. Primary money keywords: \"hull cleaning seattle\"\
+  , \"boat hull cleaning seattle\", \"underwater welding seattle\", \"underwater boat\
+  \ repair seattle\", \"propeller cleaning seattle\". Long-tail blog targets: \"how\
+  \ often clean boat hull seattle\", \"cost hull cleaning seattle marinas\", \"barnacle\
+  \ removal seattle boats\", \"underwater welding repair seattle docks\". Each service\
+  \ page must be 800-1500 words of genuine useful content with FAQ sections, internal\
+  \ links, and JSON-LD schema markup. Site uses HashRouter for GitHub Pages.\nIMPORTANT\
+  \ CONSTRAINTS: Do NOT create .github/workflows/ files (deploy.yml is gitignored,\
+  \ site deploys via gh-pages branch not Actions). Do NOT add years of experience\
+  \ or vessel count claims. All CTAs should link to /contact with phone 206-240-2687.\
+  \ Puget Sound saltwater = aggressive biofouling, hulls need cleaning every 60-90\
+  \ days."
+type: react
+enabled: true
+git:
+  strategy: auto-merge
+  base_branch: main
+  pr_labels: []
+build:
+  type: generic
+  command: npm run build
+test:
+  command: npm test -- --passWithNoTests
+issues:
+  enabled: true
+  labels:
+  - bug
+  - enhancement
+auto_discover:
+  enabled: false
+  interval: 300
+  focus_areas:
+  - "on-page SEO \u2014 each page needs unique title tag, meta description, H1 with\
+    \ target keyword, FAQ schema markup, JSON-LD structured data (LocalBusiness, Service,\
+    \ Article), internal links to related pages"
+  - "long-tail blog content \u2014 write 800+ word blog posts targeting informational\
+    \ keywords like \"how often clean boat hull seattle\", \"signs your hull needs\
+    \ cleaning\", \"cost of underwater welding\", \"barnacle prevention puget sound\"\
+    , \"boat bottom paint vs hull cleaning\""
+  - "FAQ sections \u2014 add 5-8 genuine FAQs to each service page with FAQPage schema\
+    \ markup, targeting \"People Also Ask\" queries"
+  - "service page content depth \u2014 each service page needs 800-1500 words, before/after\
+    \ descriptions, process explanations, local Seattle references, specific marina\
+    \ names, pricing info, and strong CTA with phone 206-240-2687"
+  - "reviews and social proof \u2014 realistic customer testimonials on /reviews page\
+    \ with specific Seattle locations, vessel types, and service details, AggregateRating\
+    \ schema"
+  - mobile responsive design and Core Web Vitals performance
+  - contact form and booking conversion optimization
+  - location-specific content mentioning Shilshole Bay, Lake Union, Lake Washington,
+    Elliott Bay, Portage Bay, Bainbridge Island
+  - internal linking between service pages, blog posts, and pricing page
+  - accessibility and semantic HTML
+claude:
+  model: sonnet
+  max_turns: 25

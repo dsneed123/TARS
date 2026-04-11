@@ -1,0 +1,52 @@
+repo: dsneed123/elephant-dashboard
+description: >-
+  Elephant Dashboard — real-time trading signal dashboard with interactive charts.
+  Three sections: Stocks, Crypto, Kalshi prediction markets. Each shows live
+  candlestick charts with buy/sell signals, entry points, target prices, and
+  stop-losses annotated directly on the chart.
+
+  TECH STACK: Python backend (FastAPI + WebSocket for real-time updates),
+  React frontend with TradingView Lightweight Charts (or Recharts) for
+  candlestick rendering. yfinance for stock/crypto data. Scanning engine
+  runs every 1-5 minutes for crypto, every 5 minutes for stocks during
+  market hours.
+
+  FEATURES:
+  - Dashboard with 3 tabs: Stocks, Crypto, Kalshi
+  - Each tab shows a grid of active signals with mini charts
+  - Click a signal to expand full interactive candlestick chart
+  - Buy/sell markers on chart at signal entry point
+  - Target price lines (green dashed) and stop-loss lines (red dashed) on chart
+  - Real-time price ticker updates via WebSocket
+  - Signal strength color coding (green high, yellow medium, red low)
+  - Signal history with win/loss tracking
+  - Auto-refresh: crypto every 1 min, stocks every 5 min during market hours
+  - Mobile responsive
+
+  IMPORTANT: Use TradingView Lightweight Charts library for the candlestick
+  charts — it's free, fast, and looks professional. Backend serves chart data
+  via REST API, real-time updates via WebSocket. No external API keys needed
+  beyond what yfinance provides for free.
+type: react
+enabled: true
+git:
+  strategy: auto-merge
+  base_branch: main
+  pr_labels: []
+build:
+  type: generic
+  command: cd backend && pip install -r requirements.txt --quiet 2>/dev/null; true
+test:
+  command: "true"
+issues:
+  enabled: true
+  labels:
+    - bug
+    - enhancement
+auto_discover:
+  enabled: true
+  interval: 300
+  focus_areas: []
+claude:
+  model: sonnet
+  max_turns: 25

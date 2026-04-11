@@ -1,0 +1,39 @@
+repo: dsneed123/cashflow-engine
+description: >-
+  An ethical, automated money-making SaaS platform. Analyze available tools, APIs,
+  and market opportunities to implement the fastest path to revenue. Build a production-ready
+  web app (FastAPI + vanilla JS) with user auth, Stripe payment processing, and a dashboard.
+  Revenue streams to implement: crypto trading bot with exchange APIs (Binance/Coinbase),
+  cross-exchange arbitrage detection, SaaS subscription tiers, API-as-a-service endpoints.
+  Prioritize highest revenue potential with lowest barrier to entry.
+type: python
+enabled: false  # temporarily disabled — focusing TARS on rapid-scuba
+git:
+  strategy: auto-merge
+  base_branch: main
+  pr_labels: []
+build:
+  type: generic
+  command: null
+test:
+  command: .venv/bin/pytest
+issues:
+  enabled: true
+  labels:
+  - bug
+  - enhancement
+auto_discover:
+  enabled: true
+  interval: 300
+  focus_areas:
+  - core revenue features
+  - trading engine and exchange integration
+  - user authentication and payments
+  - API endpoints and SaaS features
+  - web dashboard and UI
+  - security and input validation
+  - testing and reliability
+  - performance optimization
+claude:
+  model: sonnet
+  max_turns: 20

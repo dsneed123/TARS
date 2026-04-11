@@ -1,0 +1,34 @@
+repo: dsneed123/packet-mapper
+description: Network packet analysis and visualization tool
+type: python
+enabled: false
+git:
+  strategy: auto-merge
+  base_branch: main
+  pr_labels: []
+build:
+  type: generic
+  command: null
+test:
+  command: .venv/bin/pytest
+issues:
+  enabled: true
+  labels:
+  - bug
+  - enhancement
+auto_discover:
+  enabled: true
+  interval: 300
+  focus_areas:
+  - bug fixes
+  - security vulnerabilities
+  - performance optimization
+  - test coverage
+  - error handling
+  - UI/UX improvements
+  - missing features
+  - code cleanup
+  - documentation
+claude:
+  model: sonnet
+  max_turns: 20

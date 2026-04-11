@@ -1,0 +1,65 @@
+repo: dsneed123/athlete-vision
+description: >-
+  Athlete Vision — computer vision pipeline for 40-yard dash biomechanical analysis.
+  Uses MediaPipe Pose to extract keypoints from video, calculates stride metrics,
+  drive phase angles, arm swing symmetry, and outputs a structured CSV dataset for
+  ML model training.
+
+  PIPELINE: Video folder input → MediaPipe pose estimation per frame → keypoint tracking
+  (ankles, knees, hips, shoulders, elbows, wrists) → biomechanical variable extraction →
+  CSV output with per-athlete metrics → data quality flagging.
+
+  VARIABLES EXTRACTED PER VIDEO:
+  - 40-yard dash time (start to finish frame in seconds)
+  - Stride length (meters, averaged across all strides)
+  - Stride frequency (strides per second)
+  - Ground contact time (milliseconds per stride)
+  - Drive phase angle (torso angle from horizontal during first 10 yards)
+  - Hip extension at push-off (degrees)
+  - Arm swing symmetry score (left vs right swing arc deviation, 0-100)
+  - Forward lean angle at acceleration phase (degrees)
+  - Transition point (yard marker where upright running posture begins)
+  - Peak velocity reached (mph, from displacement between frames)
+
+  OUTPUT: CSV with columns athlete_id, video_filename, forty_time, stride_length,
+  stride_frequency, ground_contact_ms, drive_phase_angle, hip_extension,
+  arm_swing_symmetry, forward_lean_angle, transition_point_yards, peak_velocity_mph,
+  data_quality (OK or REVIEW).
+
+  TECH STACK: Python 3.10+, MediaPipe Pose, OpenCV, NumPy, pandas.
+  Camera calibration support for accurate distance estimation.
+  CLI tool: point at a video folder, outputs CSV + summary report.
+
+  IMPORTANT CONSTRAINTS: Must handle poor lighting, obstructed keypoints, non-standard
+  camera angles gracefully. Flag low-confidence tracking (<85% on critical joints).
+  Must work with standard smartphone video (1080p, 30/60fps). No GPU required
+  (MediaPipe runs on CPU). Process entire folders of videos automatically.
+type: python
+enabled: true
+git:
+  strategy: auto-merge
+  base_branch: main
+  pr_labels: []
+build:
+  type: generic
+  command: pip install -r requirements.txt --quiet 2>/dev/null; true
+test:
+  command: python -m pytest -q 2>/dev/null; rc=$?; [ $rc -eq 0 ] || [ $rc -eq 5 ]
+issues:
+  enabled: true
+  labels:
+    - bug
+    - enhancement
+auto_discover:
+  enabled: true
+  interval: 300
+  focus_areas:
+    - pose estimation accuracy and robustness
+    - biomechanical calculation correctness
+    - video processing speed optimization
+    - data quality detection and flagging
+    - CLI usability and error handling
+    - test coverage
+claude:
+  model: sonnet
+  max_turns: 25

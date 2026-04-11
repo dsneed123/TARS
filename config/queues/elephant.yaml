@@ -1,0 +1,81 @@
+tasks:
+- id: el-scan-01
+  title: Improve swing trade signal accuracy with multi-timeframe confirmation
+  description: >
+    In lib/stock_scanner.py, add multi-timeframe confirmation to reduce false signals.
+    Currently only uses daily data. Add:
+    1. Weekly trend filter — only take LONG signals if weekly SMA20 > SMA50 (uptrend), SHORT if opposite
+    2. 4-hour RSI divergence detection — bullish divergence (price makes lower low but RSI makes higher low) is a strong reversal signal
+    3. Check if price is near a key support/resistance level (round numbers, previous swing highs/lows)
+    4. Add a "trend_alignment" bonus (+15 strength) when daily + weekly trends agree
+    5. Penalize signals that go against the weekly trend (-20 strength)
+    This should reduce false signals by ~30% while keeping the strong ones.
+  project: elephant
+  priority: 180
+  status: pending
+  source: manual
+
+- id: el-scan-02
+  title: Add more stocks and sector rotation detection to swing scanner
+  description: >
+    In lib/stock_scanner.py:
+    1. Expand WATCHLIST to 80+ stocks — add industrials (CAT, DE, GE), healthcare (LLY, MRNA),
+       retail (WMT, COST, TGT), real estate (O, AMT), utilities (NEE, SO), and more ETFs (GLD, SLV, TLT, HYG)
+    2. Add sector rotation detection — when money flows out of one sector ETF and into another
+       (compare relative strength of XLF, XLE, XLK, XLV, XLI, XLU, XLP, XLC, XLRE over 5 and 20 days),
+       post a "Sector Rotation Alert" embed showing which sectors are strengthening vs weakening
+    3. Track which sectors have the most active signals and mention it in the scan header
+  project: elephant
+  priority: 160
+  status: pending
+  source: manual
+
+- id: el-scan-03
+  title: Add signal tracking and win rate reporting to swing scanner
+  description: >
+    The scanner has no memory — it doesn't track if past signals were winners or losers.
+    Add to lib/stock_scanner.py:
+    1. Create state/swing_signals.json to store every signal with timestamp, entry, targets, stop
+    2. On each scan, check past open signals — if target_1 was hit, mark as WIN; if stop was hit, mark as LOSS;
+       if expired (>15 days), mark as EXPIRED
+    3. After posting new signals, post a "Performance Summary" embed showing:
+       total signals, wins, losses, expired, win rate, avg gain on wins, avg loss on losses
+    4. Only count signals from last 30 days for the summary
+    This gives users confidence in the signals and lets TARS measure accuracy.
+  project: elephant
+  priority: 170
+  status: pending
+  source: manual
+
+- id: el-scan-04
+  title: Add pre-market gap scanner and earnings calendar awareness
+  description: >
+    In lib/stock_scanner.py:
+    1. Add pre-market gap detection — check pre-market data (yfinance supports it) for stocks
+       gapping >2% from previous close, post a "Gap Alert" before market open
+    2. Add earnings calendar awareness — use yfinance .calendar property to check if any
+       watchlist stocks report earnings this week. Flag these in the signal with a warning
+       "EARNINGS [date]" since holding through earnings is risky for swing trades
+    3. Exclude stocks reporting earnings within 2 days from swing signals (too volatile/unpredictable)
+    4. Post a weekly "Earnings Watch" embed on Monday mornings listing watchlist stocks with earnings that week
+  project: elephant
+  priority: 150
+  status: pending
+  source: manual
+
+- id: el-scan-05
+  title: Add volume profile and unusual options activity detection
+  description: >
+    In lib/stock_scanner.py, add two new signal types:
+    1. Volume profile analysis — identify high-volume price levels (volume nodes) from the last
+       20 days. When price approaches a high-volume node, it acts as support/resistance.
+       Add "Volume node support" or "Volume node resistance" as a signal type (+15 strength)
+    2. Unusual options activity — use yfinance options chain data to detect when call or put
+       volume is >3x open interest (unusual activity = smart money positioning).
+       Add "Unusual call activity" or "Unusual put activity" as a signal (+20 strength for
+       confirmation, -10 if it contradicts the signal direction)
+    These are institutional-level signals that retail scanners don't usually include.
+  project: elephant
+  priority: 140
+  status: pending
+  source: manual
