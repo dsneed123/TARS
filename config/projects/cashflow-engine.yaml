@@ -18,12 +18,12 @@ build:
 test:
   command: .venv/bin/pytest
 issues:
-  enabled: true
+  enabled: false
   labels:
   - bug
   - enhancement
 auto_discover:
-  enabled: true
+  enabled: false
   interval: 300
   focus_areas:
   - core revenue features

@@ -28,7 +28,7 @@ if command -v "$TARS_PYTHON" &>/dev/null; then
     PY_VER=$("$TARS_PYTHON" --version 2>&1 | awk '{print $2}')
     PY_MAJOR=$(echo "$PY_VER" | cut -d. -f1)
     PY_MINOR=$(echo "$PY_VER" | cut -d. -f2)
-    if [ "$PY_MAJOR" -ge 3 ] && [ "$PY_MINOR" -ge 10 ]; then
+    if [ "$PY_MAJOR" -ge 3 ] && [ "$PY_MINOR" -ge 9 ]; then
         ok "Python ${PY_VER}"
     else
         fail "Python ${PY_VER} (need 3.10+)"

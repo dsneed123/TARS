@@ -1,4 +1,5 @@
 """TARS Discord webhook logger — one-way logging with embeds."""
+from __future__ import annotations
 
 import json
 import logging

@@ -1,4 +1,5 @@
 """TARS Options Day Trade Scanner — finds 0DTE/weekly options plays."""
+from __future__ import annotations
 
 import logging
 import math

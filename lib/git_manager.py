@@ -1,4 +1,5 @@
 """TARS git operations — clone, branch, commit, push, PR creation."""
+from __future__ import annotations
 
 import json
 import logging
@@ -24,12 +25,13 @@ def create_repo(
     description: str = "",
     visibility: str = "public",
     org: str = "",
-    gh_cmd: str = "gh",
+    gh_cmd: str = "",
 ) -> str:
     """Create a new GitHub repository via gh CLI.
 
     Returns the full repo slug (e.g. 'user/repo-name').
     """
+    gh_cmd = gh_cmd or os.environ.get("GH_CMD", os.path.expanduser("~/bin/gh"))
     args = [gh_cmd, "repo", "create"]
 
     if org:
@@ -106,16 +108,16 @@ class GitManager:
         base_branch: str = "main",
         strategy: str = "branch-pr",
         pr_labels: Optional[list[str]] = None,
-        git_cmd: str = "git",
-        gh_cmd: str = "gh",
+        git_cmd: str = "",
+        gh_cmd: str = "",
     ):
         self.repo = repo  # e.g. "username/repo-name"
         self.repo_name = repo.split("/")[-1]
         self.base_branch = base_branch
         self.strategy = strategy
         self.pr_labels = pr_labels or ["tars-auto"]
-        self.git_cmd = git_cmd
-        self.gh_cmd = gh_cmd
+        self.git_cmd = git_cmd or os.environ.get("GIT_CMD", "git")
+        self.gh_cmd = gh_cmd or os.environ.get("GH_CMD", os.path.expanduser("~/bin/gh"))
         self.work_dir = REPOS_DIR / self.repo_name
 
     def _run_git(self, args: list[str], cwd: Optional[Path] = None) -> str:

@@ -1,4 +1,5 @@
 """TARS Claude CLI subprocess wrapper — the core engine."""
+from __future__ import annotations
 
 import json
 import logging

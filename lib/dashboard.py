@@ -6,6 +6,8 @@ POST endpoints for daemon control, project creation, queue management.
 
 Run: python -m lib.dashboard --port 8420
 """
+from __future__ import annotations
+
 import argparse
 import asyncio
 import json

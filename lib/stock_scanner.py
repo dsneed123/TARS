@@ -1,4 +1,5 @@
 """TARS Stock Swing Trade Scanner — scans for swing trade setups and posts to Discord."""
+from __future__ import annotations
 
 import json
 import logging

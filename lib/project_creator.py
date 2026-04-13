@@ -1,4 +1,5 @@
 """TARS project creator — scaffold new repos end-to-end."""
+from __future__ import annotations
 
 import logging
 import os

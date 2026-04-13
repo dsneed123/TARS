@@ -1,4 +1,5 @@
 """TARS chat engine — Claude CLI wrapper for interactive Discord conversations."""
+from __future__ import annotations
 
 import asyncio
 import logging

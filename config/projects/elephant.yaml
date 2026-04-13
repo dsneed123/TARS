@@ -30,7 +30,7 @@ description: >-
   (use .env + pydantic-settings). All Kalshi API calls must handle rate limits gracefully.
   The leaderboard scraping must be respectful (cache results, don't hammer the page).
 type: python
-enabled: true
+enabled: false
 git:
   strategy: auto-merge
   base_branch: main
@@ -41,12 +41,12 @@ build:
 test:
   command: cd backend && .venv/bin/python -m pytest -q; rc=$?; [ $rc -eq 0 ] || [ $rc -eq 5 ]
 issues:
-  enabled: true
+  enabled: false
   labels:
   - bug
   - enhancement
 auto_discover:
-  enabled: true
+  enabled: false
   interval: 120
   focus_areas:
   - leaderboard scraper — build robust scraper for kalshi.com/social/leaderboard, parse trader profiles, extract profit/win rate/volume/consistency, store in TrackedTrader table, run on schedule

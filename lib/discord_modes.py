@@ -1,4 +1,5 @@
 """TARS Discord mode commands — parse, execute, and pipeline mode operations."""
+from __future__ import annotations
 
 import asyncio
 import hashlib

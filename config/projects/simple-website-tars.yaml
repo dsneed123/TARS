@@ -12,7 +12,7 @@ build:
 test:
   command: npm test
 issues:
-  enabled: true
+  enabled: false
   labels:
   - bug
   - enhancement

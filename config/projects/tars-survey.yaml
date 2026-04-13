@@ -1,0 +1,28 @@
+repo: dsneed123/tars-survey
+description: TARS marketing website — landing page, business inquiry forms, and lead pipeline for selling autonomous coding services
+type: python
+enabled: true
+git:
+  strategy: auto-merge
+  base_branch: main
+  pr_labels: []
+build:
+  type: generic
+  command: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -q
+test:
+  command: .venv/bin/python manage.py test
+issues:
+  enabled: true
+  labels:
+  - bug
+  - enhancement
+auto_discover:
+  enabled: false
+  interval: 86400
+  focus_areas:
+  - test coverage
+  - error handling
+  - code cleanup
+claude:
+  model: sonnet
+  max_turns: 25

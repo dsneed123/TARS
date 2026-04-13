@@ -4,14 +4,17 @@
 
 TARS is an autonomous coding system that runs on your machine while you're away. It uses Claude CLI in headless mode to continuously discover tasks, implement code, fix errors, run tests, push to GitHub, and log everything to Discord — all without human intervention.
 
+**New:** TARS now includes a **Controller API + Dashboard** for managing a cluster of Mac Minis, and integrates with the **usetars.dev** web platform where users submit tasks.
+
 ---
 
 ## How It Works
 
 ```
+Website (usetars.dev) → Controller API → Task Queue
 GitHub Issues + Manual Queue + Auto-Discovery
               ↓
-      Task Prioritizer (scored: manual=100, issue=80, auto=40)
+      Task Prioritizer (scored: manual=100, issue=80, web=70, auto=40)
               ↓
       Token Budget Check → over budget? → sleep & pace
               ↓
@@ -52,7 +55,7 @@ TARS works in its own cloned copies of your repos (in `repos/`), never touching 
 ./tars.sh setup
 ```
 
-This verifies you have: `python3` (3.10+), `claude` CLI, `gh` CLI, `git`, `jq`, and the required Python packages.
+This verifies you have: `python3` (3.9+), `claude` CLI, `gh` CLI, `git`, `jq`, and the required Python packages.
 
 ### 2. Install Python dependencies
 
@@ -111,6 +114,112 @@ tasks:
 
 ---
 
+## Controller API + Dashboard
+
+The controller runs locally on the "brain" Mac Mini and provides a visual dashboard + REST API for managing the cluster.
+
+### Start the controller
+
+```bash
+cd controller
+./start.sh
+```
+
+Open `http://localhost:8421/` to see the dashboard:
+- **Cluster nodes** — online Mac Minis with status
+- **Task queue** — all tasks with priority, status, distribution bar
+- **Start/Stop TARS** — control the daemon from the browser
+- **Cancel tasks** — cancel pending tasks from the UI
+- **Metrics** — completed, failed, PRs created, cost
+- **Auto-refreshes** every 5 seconds
+
+### API Endpoints
+
+All authenticated endpoints require `X-API-Key` header.
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/health` | No | Health check |
+| GET | `/api/status` | Yes | Cluster status, current task, queue depth |
+| GET | `/api/workers` | Yes | List workers in cluster |
+| GET | `/api/tasks` | Yes | List tasks (filter: `?status=`, `?project=`) |
+| POST | `/api/tasks` | Yes | Submit new task |
+| POST | `/api/tasks/<id>/cancel` | Yes | Cancel a pending task |
+| GET | `/api/metrics` | Yes | Aggregated metrics |
+| GET | `/api/daemon/status` | Yes | Check if TARS daemon is running |
+| POST | `/api/daemon/start` | Yes | Start TARS daemon |
+| POST | `/api/daemon/stop` | Yes | Stop TARS daemon |
+
+### Configuration
+
+Set `TARS_API_KEY` in `tars.conf` or as an environment variable. The same key is set on Railway so the website can send tasks to the controller.
+
+```bash
+# In tars.conf
+TARS_API_KEY="your-secret-key"
+```
+
+---
+
+## Cluster Architecture
+
+```
+                    ┌─────────────────────┐
+                    │   usetars.dev       │
+                    │   (Railway)         │
+                    │   Django + Postgres │
+                    └────────┬────────────┘
+                             │ POST /api/tasks
+                             ▼
+                    ┌─────────────────────┐
+                    │   Mac Mini (Brain)  │
+                    │   Controller API    │
+                    │   TARS Daemon       │
+                    │   Port 8421         │
+                    └────────┬────────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+        ┌───────────┐ ┌───────────┐ ┌───────────┐
+        │ Worker 1  │ │ Worker 2  │ │ Worker N  │
+        │ Mac Mini  │ │ Mac Mini  │ │ Mac Mini  │
+        └───────────┘ └───────────┘ └───────────┘
+```
+
+The brain Mac Mini:
+- Runs the Controller API (Flask on port 8421)
+- Runs the TARS daemon (picks tasks, executes via Claude CLI)
+- Receives tasks from the website
+- Distributes work to additional Mac Minis (when added)
+
+Additional workers poll the brain for tasks and report back via heartbeat.
+
+---
+
+## Website Integration
+
+The Django website at usetars.dev lets users:
+- Register and log in
+- Add GitHub projects
+- Submit tasks (TARS Code, TARS Marketing)
+- Track task status and progress
+- View project activity
+
+When a user submits a task, the website:
+1. Saves it to the Django database
+2. Forwards it to the Controller API on the Mac Mini
+3. TARS picks it up from the queue and executes it
+
+Set these env vars on Railway:
+- `TARS_CONTROLLER_URL` — URL of the Mac Mini controller (e.g. `http://your-ip:8421`)
+- `TARS_API_KEY` — shared secret key
+- `DATABASE_URL` — PostgreSQL connection string
+- `SECRET_KEY` — Django secret key
+- `DJANGO_SUPERUSER_EMAIL` — admin email
+- `DJANGO_SUPERUSER_PASSWORD` — admin password
+
+---
+
 ## Commands
 
 | Command | Description |
@@ -129,12 +238,13 @@ tasks:
 
 ## Task Sources
 
-TARS discovers tasks from three sources, each with a default priority score:
+TARS discovers tasks from four sources, each with a default priority score:
 
 | Source | Priority | Description |
 |--------|----------|-------------|
 | **Manual queue** | 100 | Tasks in `config/queue.yaml` |
 | **GitHub issues** | 80 | Issues with configured labels (e.g. `tars`) |
+| **Website** | 70 | Tasks submitted via usetars.dev |
 | **Auto-discovery** | 40 | Claude analyzes the codebase and suggests improvements |
 
 Higher priority tasks are executed first.
@@ -181,71 +291,26 @@ Health check every 5 minutes. Auto-restarts the daemon on crash, rotates large l
 
 ---
 
-## Git Strategies
-
-Configure per-project in the project YAML:
-
-| Strategy | Behavior |
-|----------|----------|
-| `branch-pr` | Creates a branch, pushes, opens a PR (default) |
-| `auto-merge` | Creates a PR with auto-merge enabled (squash) |
-| `direct-main` | Merges directly to main and pushes |
-
----
-
-## Xcode Projects
-
-For iOS/macOS projects, configure the build section:
-
-```yaml
-build:
-  type: "xcode"
-  workspace: "MyApp.xcworkspace"
-  scheme: "MyApp"
-  destination: "platform=iOS Simulator,name=iPhone 16"
-test:
-  command: null   # null = use xcodebuild test
-```
-
----
-
-## Configuration Reference
-
-### `tars.conf`
-Global shell settings: paths, poll intervals, Claude defaults, safety thresholds. Sourced by all shell scripts.
-
-### `config/projects/<name>.yaml`
-Per-project settings: repo, git strategy, build/test commands, issue labels, auto-discovery, Claude model.
-
-### `config/queue.yaml`
-Manual task queue. Tasks with `status: pending` are picked up by the scheduler.
-
-### `config/token_budget.yaml`
-Daily token limit, peak hours, rate limit backoff, warning threshold.
-
-### `config/discord.yaml`
-Webhook URL and notification preferences.
-
----
-
 ## Architecture
 
 ```
 tars.sh                          Entry point (start/stop/status)
-  └─ bin/tars-daemon.sh          Main loop (the heartbeat)
-       ├─ bin/tars-scheduler.sh  Pick next task from all sources
-       │    └─ lib/task_manager.py
-       ├─ bin/tars-worker.sh     Execute one task end-to-end
-       │    ├─ lib/claude_runner.py    Claude CLI subprocess wrapper
-       │    ├─ lib/git_manager.py      Clone, branch, commit, push, PR
-       │    ├─ lib/error_analyzer.py   Auto-patch loop + circuit breakers
-       │    ├─ lib/plan_builder.py     Pre-implementation planning
-       │    └─ lib/xcode_manager.py    Xcode build/test
-       ├─ lib/token_tracker.py   Budget enforcement
-       ├─ lib/discord_logger.py  Webhook notifications
-       └─ lib/metrics.py         Daily summaries
-  └─ bin/tars-health.sh          Watchdog (parallel process)
-  └─ bin/tars-setup.sh           Dependency checker
+  ├─ bin/tars-daemon.sh          Main loop (the heartbeat)
+  │    ├─ bin/tars-scheduler.sh  Pick next task from all sources
+  │    │    └─ lib/task_manager.py
+  │    ├─ bin/tars-worker.sh     Execute one task end-to-end
+  │    │    ├─ lib/claude_runner.py    Claude CLI subprocess wrapper
+  │    │    ├─ lib/git_manager.py      Clone, branch, commit, push, PR
+  │    │    ├─ lib/error_analyzer.py   Auto-patch loop + circuit breakers
+  │    │    ├─ lib/plan_builder.py     Pre-implementation planning
+  │    │    └─ lib/xcode_manager.py    Xcode build/test
+  │    ├─ lib/token_tracker.py   Budget enforcement
+  │    ├─ lib/discord_logger.py  Webhook notifications
+  │    └─ lib/metrics.py         Daily summaries
+  ├─ bin/tars-health.sh          Watchdog (parallel process)
+  ├─ bin/tars-setup.sh           Dependency checker
+  └─ controller/
+       └─ api.py                 Controller API + Dashboard (Flask)
 ```
 
 **Design choices:**
@@ -254,6 +319,7 @@ tars.sh                          Entry point (start/stop/status)
 - Claude CLI (`claude -p --output-format json`) for actual coding
 - JSON files for state (human-readable, no database needed)
 - Discord webhooks for logging (no bot infrastructure)
+- Flask controller for cluster management + web dashboard
 
 ---
 
@@ -261,11 +327,16 @@ tars.sh                          Entry point (start/stop/status)
 
 ```
 ├── tars.sh              # Entry point
-├── tars.conf            # Global config
+├── tars.conf            # Global config (includes TARS_API_KEY)
 ├── bin/                 # Shell scripts (orchestration)
 ├── lib/                 # Python modules (logic)
 ├── config/              # YAML configuration
-│   └── projects/        # Per-project configs
+│   ├── projects/        # Per-project configs
+│   └── queues/          # Per-project task queues
+├── controller/          # Controller API + Dashboard
+│   ├── api.py           # Flask app
+│   ├── requirements.txt
+│   └── start.sh
 ├── prompts/             # Claude prompt templates
 ├── state/               # Runtime state (gitignored)
 ├── logs/                # Log files (gitignored)
@@ -285,8 +356,10 @@ python3 -m pytest tests/ -v
 
 ## Dependencies
 
-**System:** `python3` (3.10+), `claude` CLI (authenticated), `gh` CLI (authenticated), `git`, `jq`
+**System:** `python3` (3.9+), `claude` CLI (authenticated), `gh` CLI (authenticated), `git`, `jq`
 
 **Python:** `pyyaml`, `requests`, `python-dateutil`
+
+**Controller:** `flask`, `flask-cors`, `pyyaml`, `gunicorn`
 
 **Optional:** `xcodebuild` (macOS, for Xcode projects)

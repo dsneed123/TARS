@@ -8,6 +8,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../tars.conf"
 
+# Ensure Python imports work
+cd "$TARS_HOME"
+export PYTHONPATH="${TARS_HOME}:${PYTHONPATH:-}"
+
 # Usage: tars-worker.sh <project_name> <task_json>
 PROJECT="${1:?Usage: tars-worker.sh <project> <task_json>}"
 TASK_JSON="${2:?Usage: tars-worker.sh <project> <task_json>}"
@@ -20,7 +24,7 @@ TASK_SOURCE=$(echo "$TASK_JSON" | jq -r '.source // "manual"')
 LOG_FILE="${TARS_LOGS}/task_${TASK_ID}_$(date +%Y%m%d_%H%M%S).log"
 
 # Temp file for passing large data to Python (cleaned up on exit)
-TMPDATA=$(mktemp "${TARS_STATE}/worker_XXXXXX.json")
+TMPDATA=$(mktemp "${TARS_STATE}/worker_XXXXXX")
 trap 'rm -f "$TMPDATA"' EXIT
 
 DAEMON_LOG="${TARS_LOGS}/daemon.log"

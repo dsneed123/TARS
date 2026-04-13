@@ -1,4 +1,5 @@
 """TARS task manager — three task sources + priority scoring."""
+from __future__ import annotations
 
 import json
 import logging

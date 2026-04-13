@@ -35,7 +35,7 @@ description: >-
   Must work with standard smartphone video (1080p, 30/60fps). No GPU required
   (MediaPipe runs on CPU). Process entire folders of videos automatically.
 type: python
-enabled: true
+enabled: false
 git:
   strategy: auto-merge
   base_branch: main
@@ -46,12 +46,12 @@ build:
 test:
   command: python -m pytest -q 2>/dev/null; rc=$?; [ $rc -eq 0 ] || [ $rc -eq 5 ]
 issues:
-  enabled: true
+  enabled: false
   labels:
     - bug
     - enhancement
 auto_discover:
-  enabled: true
+  enabled: false
   interval: 300
   focus_areas:
     - pose estimation accuracy and robustness
