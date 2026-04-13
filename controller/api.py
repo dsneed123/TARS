@@ -11,10 +11,13 @@ Auth via X-API-Key header, key read from TARS_API_KEY env var.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import signal
 import subprocess
 import time
+import urllib.error
+import urllib.request
 import uuid
 from datetime import datetime, timezone
 from functools import wraps
@@ -23,6 +26,41 @@ from pathlib import Path
 import yaml
 from flask import Flask, abort, jsonify, render_template_string, request
 from flask_cors import CORS
+
+logger = logging.getLogger("tars.controller")
+
+
+def _notify_django(survey_task_id, status: str, **extra) -> None:
+    """Best-effort callback to the Django website to update a task's status.
+
+    Requires TARS_WEBSITE_URL and TARS_API_KEY in the environment.  Fails
+    silently on any network or auth error — task flow must not be blocked.
+    """
+    if not survey_task_id:
+        return
+    website_url = os.environ.get("TARS_WEBSITE_URL", "").rstrip("/")
+    api_key = os.environ.get("TARS_API_KEY", "")
+    if not website_url or not api_key:
+        return
+    payload = {"status": status}
+    for k, v in extra.items():
+        if v is not None:
+            payload[k] = v
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        f"{website_url}/api/tasks/{survey_task_id}/status",
+        data=body,
+        method="POST",
+        headers={
+            "X-API-Key": api_key,
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5):
+            pass
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        logger.warning("Failed to notify Django for task %s: %s", survey_task_id, e)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -362,6 +400,7 @@ def create_task():
     title = data.get("title") or data["description"][:80]
     priority = data.get("priority", 50)
     project = _ensure_project_config(data["project"])
+    survey_task_id = data.get("survey_task_id")
 
     task = {
         "id": task_id,
@@ -372,6 +411,7 @@ def create_task():
         "priority": priority,
         "status": "pending",
         "user_id": data.get("user_id"),
+        "survey_task_id": survey_task_id,
         "source": "website",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -384,6 +424,9 @@ def create_task():
     queue["tasks"].sort(key=lambda t: t.get("priority", 0), reverse=True)
 
     _write_queue(queue)
+
+    # Tell the website the task is now queued on the brain.
+    _notify_django(survey_task_id, "queued")
 
     return jsonify({"task": task}), 201
 

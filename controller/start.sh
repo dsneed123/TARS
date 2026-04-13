@@ -12,16 +12,13 @@ VENV_DIR="${SCRIPT_DIR}/.venv"
 
 export TARS_HOME
 
-# ── Load TARS_API_KEY from environment or tars.conf ─────────────
-if [[ -z "${TARS_API_KEY:-}" ]]; then
-    CONF_FILE="${TARS_HOME}/tars.conf"
-    if [[ -f "${CONF_FILE}" ]]; then
-        # Source tars.conf — it uses bash syntax already.
-        # shellcheck disable=SC1090
-        source "${CONF_FILE}"
-        export TARS_API_KEY
-    fi
+# ── Load settings from tars.conf if not already set ─────────────
+CONF_FILE="${TARS_HOME}/tars.conf"
+if [[ -f "${CONF_FILE}" ]]; then
+    # shellcheck disable=SC1090
+    source "${CONF_FILE}"
 fi
+export TARS_API_KEY TARS_WEBSITE_URL
 
 if [[ -z "${TARS_API_KEY:-}" ]]; then
     echo "WARNING: TARS_API_KEY is not set. All API requests will be rejected." >&2

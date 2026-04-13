@@ -20,6 +20,28 @@ TASK_ID=$(echo "$TASK_JSON" | jq -r '.id // "unknown"')
 TASK_TITLE=$(echo "$TASK_JSON" | jq -r '.title // "Untitled"')
 TASK_DESC=$(echo "$TASK_JSON" | jq -r '.description // ""')
 TASK_SOURCE=$(echo "$TASK_JSON" | jq -r '.source // "manual"')
+SURVEY_TASK_ID=$(echo "$TASK_JSON" | jq -r '.survey_task_id // empty')
+
+# notify_django <status> [<extra_json>] — best-effort live status callback
+# to the tarsai.dev website so the task detail page progress bar updates.
+# Silently no-ops if the task didn't come from the website or env vars are missing.
+notify_django() {
+    local status="$1"
+    local extra="${2:-}"
+    [ -z "${SURVEY_TASK_ID:-}" ] && return 0
+    [ -z "${TARS_WEBSITE_URL:-}" ] && return 0
+    [ -z "${TARS_API_KEY:-}" ] && return 0
+    local body='{"status":"'"$status"'"'
+    [ -n "$extra" ] && body="${body},${extra}"
+    body="${body}}"
+    curl -s -X POST \
+        -H "X-API-Key: ${TARS_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d "$body" \
+        --max-time 8 \
+        "${TARS_WEBSITE_URL%/}/api/tasks/${SURVEY_TASK_ID}/status" \
+        >/dev/null 2>&1 || true
+}
 
 LOG_FILE="${TARS_LOGS}/task_${TASK_ID}_$(date +%Y%m%d_%H%M%S).log"
 
@@ -55,6 +77,7 @@ log() {
 }
 
 log "INFO" "Starting task: ${TASK_TITLE} (source: ${TASK_SOURCE})"
+notify_django "assigned" "\"worker_id\":\"$(hostname)\""
 
 # --- Step 1: Check token budget ---
 BUDGET_OK=$("${TARS_PYTHON}" -c "
@@ -111,6 +134,7 @@ WORK_DIR="${TARS_REPOS}/$(echo "${REPO}" | awk -F/ '{print $NF}')"
 
 # --- Step 4: Implementation phase (Claude writes code) ---
 log "INFO" "Running Claude implementation..."
+notify_django "in_progress"
 
 # Write task data to temp file for Python to read
 echo "$TASK_JSON" > "$TMPDATA"
@@ -137,6 +161,7 @@ print(json.dumps(result))
 " 2>&1) || {
     log "ERROR" "Claude implementation failed"
     log "ERROR" "$IMPL_RESULT"
+    notify_django "failed" "\"error_message\":\"Implementation failed\""
     TARS_MSG="Implementation failed for: ${TASK_TITLE}" \
     "${TARS_PYTHON}" -c "
 import os
@@ -241,6 +266,7 @@ result = runner.run_with_prompt_file(
 
     if [ "$VERIFY_PASS" = false ]; then
         log "ERROR" "All auto-patch attempts failed, escalating"
+        notify_django "failed" "\"error_message\":\"All auto-patch attempts failed\""
         TARS_PROJECT="$PROJECT" TARS_TASK_ID="$TASK_ID" \
         TARS_MSG="Task failed after 3 auto-patch attempts: ${TASK_TITLE}" \
         TARS_LOG_FILE="$LOG_FILE" \
@@ -261,6 +287,7 @@ cd "$WORK_DIR"
 if ! "${GIT_CMD}" diff --quiet HEAD 2>/dev/null || [ -n "$("${GIT_CMD}" status --porcelain 2>/dev/null)" ]; then
     # --- Step 7: Self-review ---
     log "INFO" "Running self-review..."
+    notify_django "reviewing"
     "${GIT_CMD}" diff HEAD > "$TMPDATA" 2>/dev/null || true
     "${GIT_CMD}" diff --cached >> "$TMPDATA" 2>/dev/null || true
 
@@ -286,6 +313,7 @@ except:
 
         if [ "$APPROVED" = "false" ]; then
             log "WARN" "Self-review rejected changes, escalating"
+            notify_django "failed" "\"error_message\":\"Self-review rejected changes\""
             TARS_MSG="Self-review rejected changes for: ${TASK_TITLE}" \
             "${TARS_PYTHON}" -c "
 import os
@@ -317,6 +345,7 @@ url = gm.push_and_pr(os.environ['TARS_BRANCH'], meta['title'], meta['desc'])
 print(url or 'direct-push')
 " 2>&1) || {
         log "ERROR" "Push/PR failed: ${PR_URL}"
+        notify_django "failed" "\"error_message\":\"Push/PR failed\""
         # Mark permanent failures so daemon skips immediately instead of retrying
         if echo "$PR_URL" | grep -qi "workflow.*scope\|permission\|denied\|forbidden\|protected branch"; then
             log "ERROR" "Permanent failure (permission issue) — marking task as unretryable"
@@ -326,6 +355,9 @@ print(url or 'direct-push')
     }
 
     log "INFO" "Completed: ${PR_URL}"
+    # Escape PR URL for embedding into JSON body.
+    PR_URL_ESC=$(printf '%s' "$PR_URL" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+    notify_django "completed" "\"pr_url\":${PR_URL_ESC},\"branch_name\":\"${BRANCH}\""
 
     # --- Step 9: Discord notification ---
     TARS_MSG="$TASK_TITLE" TARS_PR_URL="$PR_URL" TARS_PROJECT="$PROJECT" \
