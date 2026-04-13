@@ -42,7 +42,7 @@ app = Flask(__name__)
 CORS(
     app,
     origins=[
-        "https://usetars.dev",
+        "https://tarsai.dev",
         "https://tars-survey-production.up.railway.app",
     ],
     supports_credentials=True,
