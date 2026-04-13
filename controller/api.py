@@ -1013,7 +1013,7 @@ async function fetchJSON(url) {
     const r = await fetch(url, {headers: HEADERS});
     if (!r.ok) return null;
     return await r.json();
-  } catch { return null; }
+  } catch(e) { return null; }
 }
 
 async function refresh() {
@@ -1097,21 +1097,23 @@ async function refresh() {
         '<span class="task-project">' + (t.project||'') + '</span>' +
         '<span class="task-priority">P' + (t.priority||50) + '</span>' +
         '<span class="badge ' + badgeClass(t.status) + '">' + (t.status||'pending') + '</span>' +
-        (canCancel ? '<button class="ctrl-btn cancel-btn" onclick="cancelTask(\'' + t.id + '\')">&#10005;</button>' : '') +
+        (canCancel ? '<button class="ctrl-btn cancel-btn" onclick="cancelTask(&quot;' + t.id + '&quot;)">&#10005;</button>' : '') +
         '</div>';
       }).join('');
     }
   }
 
   if (metrics) {
-    document.getElementById('completed-today').textContent = metrics.today?.completed || 0;
-    document.getElementById('failed-today').textContent = (metrics.today?.failed || 0) + ' failed';
-    document.getElementById('total-completed').textContent = metrics.totals?.completed || 0;
-    document.getElementById('total-prs').textContent = (metrics.totals?.prs_created || 0) + ' PRs created';
-    document.getElementById('m-completed').textContent = metrics.totals?.completed || 0;
-    document.getElementById('m-failed').textContent = metrics.totals?.failed || 0;
-    document.getElementById('m-prs').textContent = metrics.totals?.prs_created || 0;
-    document.getElementById('m-cost').textContent = '$' + (metrics.totals?.cost_usd || 0).toFixed(2);
+    var t = metrics.today || {};
+    var m = metrics.totals || {};
+    document.getElementById('completed-today').textContent = t.completed || 0;
+    document.getElementById('failed-today').textContent = (t.failed || 0) + ' failed';
+    document.getElementById('total-completed').textContent = m.completed || 0;
+    document.getElementById('total-prs').textContent = (m.prs_created || 0) + ' PRs created';
+    document.getElementById('m-completed').textContent = m.completed || 0;
+    document.getElementById('m-failed').textContent = m.failed || 0;
+    document.getElementById('m-prs').textContent = m.prs_created || 0;
+    document.getElementById('m-cost').textContent = '$' + (m.cost_usd || 0).toFixed(2);
   }
 }
 
