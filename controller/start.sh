@@ -53,6 +53,7 @@ echo ""
 # Use gunicorn in production, fall back to Flask dev server.
 if command -v gunicorn &>/dev/null || "${VENV_DIR}/bin/gunicorn" --version &>/dev/null 2>&1; then
     exec "${VENV_DIR}/bin/gunicorn" \
+        --chdir "${SCRIPT_DIR}" \
         --bind "0.0.0.0:${PORT}" \
         --workers 2 \
         --timeout 30 \

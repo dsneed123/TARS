@@ -1,8 +1,8 @@
 """
 TARS Controller API
 
-Lightweight Flask API running on the Mac Mini "brain" that receives
-task commands from the Railway-hosted Django website (usetars.dev).
+Lightweight Flask API running on the brain node that receives
+task commands from the Railway-hosted Django website (tarsai.dev).
 
 Reads/writes TARS state files (JSON) and queue config (YAML).
 Auth via X-API-Key header, key read from TARS_API_KEY env var.
@@ -112,6 +112,46 @@ def _write_queue(data: dict):
     with open(tmp, "w") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)
     tmp.rename(QUEUE_FILE)
+
+
+def _ensure_project_config(project: str) -> str:
+    """
+    Resolve an incoming project identifier (short name or owner/repo) to an
+    enabled TARS project config. If no matching config exists, create one with
+    sensible defaults so newly-added website projects are immediately runnable.
+
+    Returns the short name the scheduler will match against.
+    """
+    projects_dir = CONFIG_DIR / "projects"
+    projects_dir.mkdir(parents=True, exist_ok=True)
+
+    for path in projects_dir.glob("*.yaml"):
+        try:
+            with open(path) as f:
+                cfg = yaml.safe_load(f) or {}
+        except yaml.YAMLError:
+            continue
+        if cfg.get("repo") == project or path.stem == project:
+            return path.stem
+
+    short_name = project.split("/", 1)[1] if "/" in project else project
+    repo = project if "/" in project else ""
+    default_cfg = {
+        "repo": repo,
+        "description": f"Auto-created from website task for {project}",
+        "type": "generic",
+        "enabled": True,
+        "git": {"strategy": "branch-pr", "base_branch": "main", "pr_labels": []},
+        "build": {"type": "generic", "command": None},
+        "test": {"command": None},
+        "issues": {"enabled": False, "labels": ["tars"]},
+        "auto_discover": {"enabled": False, "interval": 86400, "focus_areas": []},
+        "claude": {"model": "sonnet", "max_turns": 20},
+    }
+    new_path = projects_dir / f"{short_name}.yaml"
+    with open(new_path, "w") as f:
+        yaml.dump(default_cfg, f, default_flow_style=False, sort_keys=False)
+    return short_name
 
 
 def _discover_workers() -> list[dict]:
@@ -321,12 +361,13 @@ def create_task():
     task_id = f"web-{uuid.uuid4().hex[:8]}"
     title = data.get("title") or data["description"][:80]
     priority = data.get("priority", 50)
+    project = _ensure_project_config(data["project"])
 
     task = {
         "id": task_id,
         "title": title,
         "description": data["description"],
-        "project": data["project"],
+        "project": project,
         "task_type": data["task_type"],
         "priority": priority,
         "status": "pending",

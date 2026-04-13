@@ -31,7 +31,7 @@ def create_repo(
 
     Returns the full repo slug (e.g. 'user/repo-name').
     """
-    gh_cmd = gh_cmd or os.environ.get("GH_CMD", os.path.expanduser("~/bin/gh"))
+    gh_cmd = gh_cmd or os.environ.get("GH_CMD", "gh")
     args = [gh_cmd, "repo", "create"]
 
     if org:
@@ -117,7 +117,7 @@ class GitManager:
         self.strategy = strategy
         self.pr_labels = pr_labels or ["tars-auto"]
         self.git_cmd = git_cmd or os.environ.get("GIT_CMD", "git")
-        self.gh_cmd = gh_cmd or os.environ.get("GH_CMD", os.path.expanduser("~/bin/gh"))
+        self.gh_cmd = gh_cmd or os.environ.get("GH_CMD", "gh")
         self.work_dir = REPOS_DIR / self.repo_name
 
     def _run_git(self, args: list[str], cwd: Optional[Path] = None) -> str:

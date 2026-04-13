@@ -56,6 +56,15 @@ cmd_start() {
         exit 1
     fi
 
+    # Also catch orphan daemons not tracked by the PID file
+    local orphans
+    orphans=$(pgrep -f "bash.*tars-daemon\.sh" 2>/dev/null || true)
+    if [[ -n "$orphans" ]]; then
+        echo "Found orphan tars-daemon(s): $orphans"
+        echo "Run './tars.sh stop' first to clean them up."
+        exit 1
+    fi
+
     echo "Starting TARS daemon..."
     nohup "${TARS_BIN}/tars-daemon.sh" > /dev/null 2>&1 &
     local daemon_pid=$!
@@ -100,6 +109,19 @@ cmd_stop() {
     else
         echo "TARS is not running"
     fi
+
+    # Kill any orphan daemons that weren't in the PID file
+    local orphans
+    orphans=$(pgrep -f "bash.*tars-daemon\.sh" 2>/dev/null || true)
+    if [[ -n "$orphans" ]]; then
+        echo "Killing orphan daemons: $orphans"
+        echo "$orphans" | xargs -r kill -9 2>/dev/null || true
+    fi
+
+    # Kill any running workers (their trap will reap Claude subprocesses)
+    pkill -TERM -f "tars-worker.sh" 2>/dev/null || true
+    sleep 1
+    pkill -9 -f "tars-worker.sh" 2>/dev/null || true
 
     # Also stop health watchdog
     pkill -f "tars-health.sh" 2>/dev/null || true

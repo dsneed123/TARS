@@ -13,19 +13,33 @@ log() {
     echo "[$(date +"${LOG_DATE_FMT}")] [${level}] [health] $*" | tee -a "$HEALTH_LOG"
 }
 
-check_daemon() {
-    if [ ! -f "$TARS_PID_FILE" ]; then
-        return 1
-    fi
+# Single-instance guard — file lock that auto-releases on exit.
+HEALTH_LOCK="${TARS_STATE}/locks/health.lock"
+mkdir -p "$(dirname "$HEALTH_LOCK")"
+exec 9>"$HEALTH_LOCK"
+if ! flock -n 9; then
+    exit 0
+fi
+echo $$ > "$HEALTH_LOCK"
 
-    local pid
-    pid=$(cat "$TARS_PID_FILE")
-    if kill -0 "$pid" 2>/dev/null; then
+check_daemon() {
+    # Primary check: is any tars-daemon.sh process alive?
+    if pgrep -f "bash.*tars-daemon\.sh" >/dev/null 2>&1; then
+        # If a daemon is running but PID file is stale, refresh it so other
+        # tooling sees the truth.
+        local running_pid
+        running_pid=$(pgrep -f "bash.*tars-daemon\.sh" | head -1)
+        if [[ -n "$running_pid" ]]; then
+            local tracked=""
+            [ -f "$TARS_PID_FILE" ] && tracked=$(cat "$TARS_PID_FILE" 2>/dev/null || echo "")
+            if [[ "$tracked" != "$running_pid" ]]; then
+                echo "$running_pid" > "$TARS_PID_FILE"
+            fi
+        fi
         return 0
-    else
-        rm -f "$TARS_PID_FILE"
-        return 1
     fi
+    rm -f "$TARS_PID_FILE"
+    return 1
 }
 
 check_disk_space() {

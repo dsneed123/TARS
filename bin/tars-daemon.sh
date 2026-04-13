@@ -10,6 +10,18 @@ mkdir -p "$TARS_STATE" "$TARS_LOGS" "$TARS_REPOS" "${TARS_STATE}/locks"
 
 DAEMON_LOG="${TARS_LOGS}/daemon.log"
 
+# Single-instance guard — file lock that auto-releases on exit.
+# Atomic: two daemons racing to start will have exactly one win the lock.
+LOCK_FILE="${TARS_STATE}/locks/daemon.lock"
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+    LOCK_HOLDER=$(cat "$LOCK_FILE" 2>/dev/null || echo "unknown")
+    echo "[$(date +"${LOG_DATE_FMT}")] [INFO] [daemon] Another tars-daemon holds the lock (PID: ${LOCK_HOLDER}). Aborting." \
+        | tee -a "$DAEMON_LOG" >&2
+    exit 0
+fi
+echo $$ > "$LOCK_FILE"
+
 log() {
     local level="$1"; shift
     echo "[$(date +"${LOG_DATE_FMT}")] [${level}] [daemon] $*" | tee -a "$DAEMON_LOG"

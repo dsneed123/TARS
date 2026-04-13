@@ -110,14 +110,17 @@ class TaskManager:
 
     def get_manual_tasks(self) -> list[dict]:
         """Get tasks from the manual queue (config/queue.yaml)."""
-        # Build set of enabled project names
-        enabled_projects = {p["_name"] for p in list_projects()}
+        enabled = list_projects()
+        enabled_names = {p["_name"] for p in enabled}
+        # Map owner/repo form back to the project's short name so
+        # website-submitted tasks (which use github_repo) resolve correctly.
+        repo_to_name = {p["repo"]: p["_name"] for p in enabled if p.get("repo")}
 
         tasks = []
         for item in load_queue():
-            project = item.get("project", "")
-            # Skip tasks for disabled projects
-            if project and project not in enabled_projects:
+            raw_project = item.get("project", "")
+            project = repo_to_name.get(raw_project, raw_project)
+            if project and project not in enabled_names:
                 continue
             task_id = f"manual-{item.get('id', hash(item.get('title', '')))}".replace(" ", "-")
             if self._is_completed(task_id):

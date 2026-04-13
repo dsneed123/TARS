@@ -28,7 +28,7 @@ description: "Rapid Scuba \u2014 Seattle's underwater welding and hull cleaning 
   \ Puget Sound saltwater = aggressive biofouling, hulls need cleaning every 60-90\
   \ days."
 type: react
-enabled: false
+enabled: true
 git:
   strategy: auto-merge
   base_branch: main

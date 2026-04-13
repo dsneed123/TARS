@@ -25,7 +25,25 @@ LOG_FILE="${TARS_LOGS}/task_${TASK_ID}_$(date +%Y%m%d_%H%M%S).log"
 
 # Temp file for passing large data to Python (cleaned up on exit)
 TMPDATA=$(mktemp "${TARS_STATE}/worker_XXXXXX")
-trap 'rm -f "$TMPDATA"' EXIT
+
+# Recursively kill all descendants on exit so Claude subprocesses don't
+# outlive a killed/crashed worker and continue burning tokens.
+_kill_tree() {
+    local parent=$1
+    for child in $(pgrep -P "$parent" 2>/dev/null); do
+        _kill_tree "$child"
+    done
+    kill -9 "$parent" 2>/dev/null || true
+}
+
+_worker_cleanup() {
+    for child in $(pgrep -P $$ 2>/dev/null); do
+        _kill_tree "$child"
+    done
+    rm -f "$TMPDATA"
+}
+
+trap _worker_cleanup EXIT INT TERM
 
 DAEMON_LOG="${TARS_LOGS}/daemon.log"
 
