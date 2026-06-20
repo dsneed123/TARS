@@ -617,7 +617,9 @@ def _enforce_single_model(keep: str) -> None:
 # agent", no forced TARS identity (e.g. the uncensored model for explicit chat).
 # Override with OLLAMA_FREEFORM_MODELS (comma-separated tags or base names).
 FREEFORM_MODELS = {
-    m.strip() for m in os.environ.get("OLLAMA_FREEFORM_MODELS", "dolphin-mistral").split(",")
+    m.strip() for m in os.environ.get(
+        "OLLAMA_FREEFORM_MODELS", "dolphin-mistral,dolphin-mixtral,dolphin-llama3,dolphin3"
+    ).split(",")
     if m.strip()
 }
 
