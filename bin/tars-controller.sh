@@ -78,10 +78,24 @@ status() {
     fi
 }
 
+run() {
+    # Foreground gunicorn — for systemd/supervisors (Type=simple). No PID file.
+    [ -n "${TARS_API_KEY:-}" ] || echo "WARNING: TARS_API_KEY unset — all requests will be rejected." >&2
+    exec "${VENV}/bin/gunicorn" \
+        --chdir "${CTL_DIR}" \
+        --bind "0.0.0.0:${PORT}" \
+        --workers "${WORKERS}" \
+        --timeout "${TIMEOUT}" \
+        --access-logfile - \
+        --error-logfile - \
+        "api:app"
+}
+
 case "${1:-status}" in
     start)   start ;;
     stop)    stop ;;
     restart) stop; sleep 1; start ;;
     status)  status ;;
-    *) echo "Usage: $0 {start|stop|restart|status}" >&2; exit 1 ;;
+    run)     run ;;
+    *) echo "Usage: $0 {start|stop|restart|status|run}" >&2; exit 1 ;;
 esac
