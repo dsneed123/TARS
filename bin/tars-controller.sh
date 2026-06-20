@@ -80,12 +80,18 @@ status() {
 
 run() {
     # Foreground gunicorn — for systemd/supervisors (Type=simple). No PID file.
+    # Threaded workers: model/chat requests can block for minutes, so use
+    # gthread so a slow request occupies one THREAD, not a whole worker — fast
+    # endpoints (health, status) stay responsive instead of starving.
     [ -n "${TARS_API_KEY:-}" ] || echo "WARNING: TARS_API_KEY unset — all requests will be rejected." >&2
     exec "${VENV}/bin/gunicorn" \
         --chdir "${CTL_DIR}" \
         --bind "0.0.0.0:${PORT}" \
-        --workers "${WORKERS}" \
+        --worker-class gthread \
+        --workers "${TARS_CONTROLLER_WORKERS:-2}" \
+        --threads "${TARS_CONTROLLER_THREADS:-8}" \
         --timeout "${TIMEOUT}" \
+        --graceful-timeout 30 \
         --access-logfile - \
         --error-logfile - \
         "api:app"

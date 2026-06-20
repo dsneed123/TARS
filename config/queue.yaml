@@ -1,11 +1,1 @@
-tasks:
-- id: web-cd6bf7fb
-  title: make more user freindly
-  description: make webpage more user freindly
-  project: rapid-scuba
-  task_type: tars-code
-  priority: 50
-  status: pending
-  user_id: '1'
-  source: website
-  created_at: '2026-04-13T21:10:48.410622+00:00'
+tasks: []

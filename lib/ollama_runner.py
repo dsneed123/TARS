@@ -52,7 +52,7 @@ ROLE_MODEL_ENV = {
     "fix": ("OLLAMA_FIX_MODEL", "deepseek-r1:70b"),
     "review": ("OLLAMA_REVIEW_MODEL", "deepseek-r1:70b"),
     "plan": ("OLLAMA_PLAN_MODEL", "deepseek-r1:70b"),
-    "chat": ("OLLAMA_CHAT_MODEL", "deepseek-r1:70b"),
+    "chat": ("OLLAMA_CHAT_MODEL", "qwen2.5:7b"),
 }
 
 NUM_CTX = int(os.environ.get("OLLAMA_NUM_CTX", "16384"))
@@ -202,7 +202,14 @@ class OllamaRunner:
                 if is_reasoning_model(resolved_model):
                     return self._run_edit(prompt, resolved_model, cwd, turns, start, append_system)
                 return self._run_agent(prompt, resolved_model, cwd, turns, start, append_system)
-            return self._run_text(prompt, resolved_model, cwd, start, append_system)
+            # Bound output length for speed — small for chat, roomier for
+            # review/plan (which emit JSON). 0/unset env keeps it generous.
+            if role == "chat":
+                num_predict = int(os.environ.get("OLLAMA_CHAT_NUM_PREDICT", "768"))
+            else:
+                num_predict = int(os.environ.get("OLLAMA_TEXT_NUM_PREDICT", "2048"))
+            return self._run_text(prompt, resolved_model, cwd, start, append_system,
+                                  num_predict=num_predict or None)
         except OllamaError as e:
             logger.error("Ollama error (role=%s): %s", role, e)
             return self._result(f"Ollama error: {e}", 0, 0, start, is_error=True)
@@ -309,12 +316,12 @@ class OllamaRunner:
         return target
 
     # ----------------------------------------------------------------- text mode
-    def _run_text(self, prompt, model, cwd, start, append_system) -> dict:
+    def _run_text(self, prompt, model, cwd, start, append_system, num_predict=None) -> dict:
         messages = []
         if append_system:
             messages.append({"role": "system", "content": append_system})
         messages.append({"role": "user", "content": prompt})
-        resp = self.client.chat(model, messages, num_ctx=NUM_CTX)
+        resp = self.client.chat(model, messages, num_ctx=NUM_CTX, num_predict=num_predict)
         msg = resp.get("message", {})
         text = strip_think(msg.get("content", ""))
         return self._result(

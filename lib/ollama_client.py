@@ -97,6 +97,7 @@ class OllamaClient:
         temperature: float = 0.2,
         timeout: Optional[int] = None,
         keep_alive: str = "30m",
+        num_predict: Optional[int] = None,
     ) -> dict:
         """Run a non-streaming chat completion.
 
@@ -116,6 +117,9 @@ class OllamaClient:
                 "temperature": temperature,
             },
         }
+        if num_predict is not None:
+            # Cap output length so replies stay fast when a long answer isn't needed.
+            payload["options"]["num_predict"] = num_predict
         if tools:
             payload["tools"] = tools
 
