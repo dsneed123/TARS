@@ -613,25 +613,49 @@ def _enforce_single_model(keep: str) -> None:
         pass
 
 
+# Models that chat with NO system framing at all — fully open, not a "coding
+# agent", no forced TARS identity (e.g. the uncensored model for explicit chat).
+# Override with OLLAMA_FREEFORM_MODELS (comma-separated tags or base names).
+FREEFORM_MODELS = {
+    m.strip() for m in os.environ.get("OLLAMA_FREEFORM_MODELS", "dolphin-mistral").split(",")
+    if m.strip()
+}
+
+
+def _is_freeform(model: str) -> bool:
+    if not model:
+        return False
+    free_bases = {f.split(":")[0] for f in FREEFORM_MODELS}
+    return model in FREEFORM_MODELS or model.split(":")[0] in free_bases
+
+
 def _chat_reply(message: str, history: list, model: str = None) -> str:
     """Provider-aware single reply (delegates to Ollama or Claude via ChatEngine).
-    An explicit Ollama model tag overrides the default chat model."""
+    An explicit Ollama model tag overrides the default chat model.
+
+    Freeform models get no system prompt (open chat); other chat models get a
+    light, NON-coding assistant persona — none are framed as coding agents."""
     from lib.chat_engine import ChatEngine
     # One model at a time: free other models before this reply loads its own.
     effective = model or os.environ.get("OLLAMA_CHAT_MODEL", "qwen2.5:7b")
     _enforce_single_model(effective)
     eng = ChatEngine(model=model) if model else ChatEngine()
-    parts = [
-        "<system>",
-        "You are TARS, a concise and capable AI assistant for an autonomous "
-        "coding system. Answer directly and helpfully.",
-        "</system>",
-    ]
+
+    freeform = _is_freeform(effective)
+    parts = []
+    if not freeform:
+        parts += [
+            "<system>",
+            "You are TARS, a helpful, concise assistant. Answer directly.",
+            "</system>",
+        ]
+    label = "Assistant" if freeform else "TARS"
     for m in history[-20:]:
-        who = "User" if m.get("role") == "user" else "TARS"
+        who = "User" if m.get("role") == "user" else label
         parts.append(f"[{who}]: {m.get('content', '')}")
     parts.append(f"[User]: {message}")
-    parts.append("Respond as TARS.")
+    if not freeform:
+        parts.append("Respond as TARS.")
     return eng._run_claude("\n".join(parts))
 
 
