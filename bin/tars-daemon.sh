@@ -190,6 +190,16 @@ print('yes' if not ErrorAnalyzer().is_locked(os.environ['TARS_PROJECT']) else 'n
         continue
     fi
 
+    # Resource gate — don't start heavy local-model work if the box is saturated.
+    # (Concurrency is already 1: the worker call below is synchronous.)
+    GATE_REASON=$("${TARS_BIN}/tars-resource-gate.sh" 2>/dev/null) || {
+        rm -f "${TARS_STATE}/current_task.json"
+        log "INFO" "Resource gate: waiting (${GATE_REASON})"
+        sleep "$TARS_POLL_INTERVAL" &
+        wait $! || true
+        continue
+    }
+
     # Execute task via worker
     if "${TARS_BIN}/tars-worker.sh" "$PROJECT" "$TASK_JSON"; then
         rm -f "${TARS_STATE}/current_task.json"

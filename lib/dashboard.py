@@ -4,7 +4,7 @@ TARS Web Dashboard — real-time monitoring and control panel.
 Reads state JSON files directly (no heavy Python object instantiation).
 POST endpoints for daemon control, project creation, queue management.
 
-Run: python -m lib.dashboard --port 8420
+Run: python -m lib.dashboard --port 8421   # public Flask controller owns 8420
 """
 from __future__ import annotations
 

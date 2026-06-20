@@ -38,6 +38,20 @@ class ClaudeRunner:
         self.claude_cmd = claude_cmd
         self.allowed_tools = allowed_tools
 
+        # Provider routing: when TARS_LLM_PROVIDER=ollama, transparently delegate
+        # to the local Ollama agent runner so every call site and the worker's
+        # JSON contract keep working unchanged.
+        self._backend = None
+        if os.environ.get("TARS_LLM_PROVIDER", "").lower() == "ollama":
+            try:
+                from ollama_runner import OllamaRunner
+            except ImportError:  # imported as lib.claude_runner (PYTHONPATH=TARS_HOME)
+                from lib.ollama_runner import OllamaRunner
+            self._backend = OllamaRunner(
+                model=model, max_turns=max_turns, allowed_tools=allowed_tools
+            )
+            logger.info("ClaudeRunner delegating to Ollama backend")
+
     def run(
         self,
         prompt: str,
@@ -51,6 +65,16 @@ class ClaudeRunner:
 
         Returns dict with keys: result, cost_usd, duration_ms, tokens_in, tokens_out
         """
+        if self._backend is not None:
+            return self._backend.run(
+                prompt,
+                cwd=cwd,
+                model=model,
+                max_turns=max_turns,
+                timeout=timeout,
+                append_system=append_system,
+            )
+
         cmd = [
             self.claude_cmd,
             "-p", prompt,
@@ -149,6 +173,9 @@ class ClaudeRunner:
         **kwargs,
     ) -> dict:
         """Load a prompt template, substitute variables, and run."""
+        if self._backend is not None:
+            return self._backend.run_with_prompt_file(prompt_file, variables, **kwargs)
+
         path = PROMPTS_DIR / prompt_file
         if not path.exists():
             raise FileNotFoundError(f"Prompt template not found: {path}")

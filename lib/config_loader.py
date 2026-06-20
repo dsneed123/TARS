@@ -18,6 +18,9 @@ DEFAULT_PROJECT = {
         "strategy": "branch-pr",
         "base_branch": "main",
         "pr_labels": ["tars-auto"],
+        # When true, TARS merges straight to the base branch with no PR
+        # (overrides `strategy` -> "direct-main"). Exposed as a project toggle.
+        "auto_merge": False,
     },
     "build": {
         "type": "generic",
@@ -85,7 +88,12 @@ def load_project(name: str) -> dict:
     raw = load_yaml(path)
     if not raw:
         raise FileNotFoundError(f"Project config not found: {path}")
-    return _deep_merge(DEFAULT_PROJECT, raw)
+    cfg = _deep_merge(DEFAULT_PROJECT, raw)
+    # auto_merge toggle: when on, force the no-PR direct-merge strategy so the
+    # worker (which reads git.strategy) commits straight to the base branch.
+    if cfg.get("git", {}).get("auto_merge"):
+        cfg["git"]["strategy"] = "direct-main"
+    return cfg
 
 
 def list_projects() -> list[dict]:

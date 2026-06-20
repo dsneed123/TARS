@@ -24,10 +24,20 @@ from functools import wraps
 from pathlib import Path
 
 import yaml
-from flask import Flask, abort, jsonify, render_template_string, request
+from flask import Flask, abort, g, jsonify, render_template_string, request
 from flask_cors import CORS
 
 logger = logging.getLogger("tars.controller")
+
+# Make lib/ importable (controller runs from controller/, lib is a sibling).
+import hmac
+import re
+import sys
+
+_TARS_HOME = Path(os.environ.get("TARS_HOME", Path(__file__).resolve().parent.parent))
+if str(_TARS_HOME) not in sys.path:
+    sys.path.insert(0, str(_TARS_HOME))
+from lib import api_keys  # noqa: E402
 
 
 def _notify_django(survey_task_id, status: str, **extra) -> None:
@@ -93,17 +103,58 @@ CORS(
 API_KEY = os.environ.get("TARS_API_KEY", "")
 
 
+def _identify(provided: str):
+    """Resolve a presented key to an identity dict, or None.
+
+    The master TARS_API_KEY is always admin. Otherwise look it up in the
+    per-user key store. Both comparisons are constant-time.
+    """
+    if not provided:
+        return None
+    if API_KEY and hmac.compare_digest(provided, API_KEY):
+        return {"user": "admin", "is_admin": True, "id": "master", "scopes": ["*"]}
+    rec = api_keys.lookup(provided)
+    if rec:
+        return {
+            "user": rec.get("user", "unknown"),
+            "is_admin": bool(rec.get("is_admin")),
+            "id": rec.get("id"),
+            "scopes": rec.get("scopes", []),
+            "projects": rec.get("projects", []),
+        }
+    return None
+
+
 def require_api_key(fn):
-    """Decorator that checks for a valid X-API-Key header."""
+    """Decorator: require any valid key (master or per-user). Sets g.identity."""
 
     @wraps(fn)
     def wrapper(*args, **kwargs):
         if not API_KEY:
-            # If no key is configured, reject everything so we never run open.
+            # If no master key is configured, reject everything so we never run open.
             return jsonify({"error": "API key not configured on server"}), 500
-        provided = request.headers.get("X-API-Key", "")
-        if not provided or provided != API_KEY:
+        identity = _identify(request.headers.get("X-API-Key", ""))
+        if not identity:
             return jsonify({"error": "Unauthorized"}), 401
+        g.identity = identity
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def require_admin(fn):
+    """Decorator: require an admin key (master or a key flagged is_admin)."""
+
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if not API_KEY:
+            return jsonify({"error": "API key not configured on server"}), 500
+        identity = _identify(request.headers.get("X-API-Key", ""))
+        if not identity:
+            return jsonify({"error": "Unauthorized"}), 401
+        if not identity.get("is_admin"):
+            return jsonify({"error": "Admin access required"}), 403
+        g.identity = identity
         return fn(*args, **kwargs)
 
     return wrapper
@@ -268,6 +319,483 @@ def cluster_status():
 def health():
     """Unauthenticated health-check for uptime monitors."""
     return jsonify({"ok": True, "timestamp": datetime.now(timezone.utc).isoformat()})
+
+
+@app.route("/api/whoami", methods=["GET"])
+@require_api_key
+def whoami():
+    """Return the identity for the presented key (used by the dashboard)."""
+    return jsonify(g.identity)
+
+
+# ---------------------------------------------------------------------------
+# Routes — Admin: API key management (admin-only)
+# ---------------------------------------------------------------------------
+
+
+@app.route("/api/admin/keys", methods=["GET"])
+@require_admin
+def admin_list_keys():
+    """List all issued keys (hashes never returned)."""
+    return jsonify({"keys": api_keys.list_keys()})
+
+
+@app.route("/api/admin/keys", methods=["POST"])
+@require_admin
+def admin_create_key():
+    """Generate a new per-user key. Body: {user, scopes?, is_admin?}.
+    The plaintext key is returned ONCE here and never again."""
+    data = request.get_json(silent=True) or {}
+    user = (data.get("user") or "").strip()
+    if not user:
+        return jsonify({"error": "Missing required field: user"}), 400
+    scopes = data.get("scopes")
+    if scopes is not None and not isinstance(scopes, list):
+        return jsonify({"error": "scopes must be a list"}), 400
+    rec = api_keys.generate_key(user, scopes=scopes, is_admin=bool(data.get("is_admin")))
+    logger.info("Issued API key %s for user %s", rec["id"], user)
+    return jsonify(rec), 201
+
+
+@app.route("/api/admin/keys/<key_id>/revoke", methods=["POST"])
+@require_admin
+def admin_revoke_key(key_id):
+    """Revoke a key by id."""
+    if api_keys.revoke_key(key_id):
+        logger.info("Revoked API key %s", key_id)
+        return jsonify({"ok": True, "revoked": key_id})
+    return jsonify({"error": "Key not found"}), 404
+
+
+# ---------------------------------------------------------------------------
+# Routes — Projects (onboarding, settings, fresh creation)
+# ---------------------------------------------------------------------------
+
+PROJECTS_DIR = CONFIG_DIR / "projects"
+QUEUES_DIR = CONFIG_DIR / "queues"
+
+
+def _parse_repo(raw: str):
+    """Parse a GitHub URL or owner/repo into (owner/repo, short_name) or None."""
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    m = re.search(r"github\.com[:/]+([\w.-]+)/([\w.-]+)", raw)
+    if m:
+        owner, name = m.group(1), m.group(2)
+    elif re.match(r"^[\w.-]+/[\w.-]+$", raw):
+        owner, name = raw.split("/", 1)
+    else:
+        return None
+    name = re.sub(r"\.git$", "", name)
+    short = re.sub(r"[^\w.-]", "-", name)
+    return (f"{owner}/{name}", short)
+
+
+def _write_project_config(short: str, repo: str, opts: dict, owner_key_id=None) -> str:
+    """Write a project YAML with sensible defaults. Returns the short name."""
+    PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+    auto_merge = bool(opts.get("auto_merge"))
+    cfg = {
+        "repo": repo,
+        "description": opts.get("description", ""),
+        "type": "generic",
+        "enabled": True,
+        "git": {
+            "strategy": "direct-main" if auto_merge else "branch-pr",
+            "base_branch": opts.get("base_branch", "main"),
+            "pr_labels": ["tars-auto"],
+            "auto_merge": auto_merge,
+        },
+        "build": {"type": "generic", "command": opts.get("build") or None},
+        "test": {"command": opts.get("test") or None},
+        "issues": {"enabled": False, "labels": ["tars"]},
+        "auto_discover": {"enabled": False, "interval": 86400, "focus_areas": []},
+        "claude": {"model": "sonnet", "max_turns": 20},
+    }
+    path = PROJECTS_DIR / f"{short}.yaml"
+    tmp = path.with_suffix(".tmp")
+    with open(tmp, "w") as f:
+        yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+    tmp.rename(path)
+    if owner_key_id and owner_key_id != "master":
+        api_keys.add_project(owner_key_id, short)
+    return short
+
+
+def _owns_project(identity: dict, name: str) -> bool:
+    return bool(identity.get("is_admin")) or name in (identity.get("projects") or [])
+
+
+def _write_queue_tasks(project: str, tasks: list, append: bool = True) -> None:
+    QUEUES_DIR.mkdir(parents=True, exist_ok=True)
+    path = QUEUES_DIR / f"{project}.yaml"
+    existing = []
+    if append:
+        try:
+            with open(path) as f:
+                existing = (yaml.safe_load(f) or {}).get("tasks", []) or []
+        except (FileNotFoundError, yaml.YAMLError):
+            existing = []
+    tmp = path.with_suffix(".tmp")
+    with open(tmp, "w") as f:
+        yaml.dump({"tasks": existing + tasks}, f, default_flow_style=False, sort_keys=False)
+    tmp.rename(path)
+
+
+@app.route("/api/projects", methods=["GET"])
+@require_api_key
+def list_projects_route():
+    """List projects visible to the caller (admin = all, user = their own)."""
+    ident = g.identity
+    out = []
+    if PROJECTS_DIR.exists():
+        for p in sorted(PROJECTS_DIR.glob("*.yaml")):
+            try:
+                with open(p) as f:
+                    cfg = yaml.safe_load(f) or {}
+            except yaml.YAMLError:
+                continue
+            if not _owns_project(ident, p.stem):
+                continue
+            out.append({
+                "name": p.stem,
+                "repo": cfg.get("repo", ""),
+                "enabled": cfg.get("enabled", True),
+                "auto_merge": cfg.get("git", {}).get("auto_merge", False),
+                "build": cfg.get("build", {}).get("command"),
+                "test": cfg.get("test", {}).get("command"),
+            })
+    return jsonify({"projects": out})
+
+
+@app.route("/api/projects", methods=["POST"])
+@require_api_key
+def add_project_route():
+    """Onboard an existing public repo. Body: {repo_url|repo, build?, test?, auto_merge?}."""
+    data = request.get_json(silent=True) or {}
+    parsed = _parse_repo(data.get("repo_url") or data.get("repo"))
+    if not parsed:
+        return jsonify({"error": "Provide a valid GitHub repo URL or owner/repo"}), 400
+    repo, short = parsed
+    if (PROJECTS_DIR / f"{short}.yaml").exists():
+        return jsonify({"error": f"Project '{short}' already exists"}), 409
+    _write_project_config(short, repo, data, owner_key_id=g.identity.get("id"))
+    logger.info("Onboarded %s (%s) by %s", short, repo, g.identity.get("user"))
+    return jsonify({"ok": True, "name": short, "repo": repo}), 201
+
+
+@app.route("/api/projects/<name>/settings", methods=["POST"])
+@require_api_key
+def project_settings_route(name):
+    """Update per-project settings (auto_merge toggle, build/test cmds, enabled)."""
+    if not _owns_project(g.identity, name):
+        return jsonify({"error": "No access to that project"}), 403
+    path = PROJECTS_DIR / f"{name}.yaml"
+    if not path.exists():
+        return jsonify({"error": "Project not found"}), 404
+    with open(path) as f:
+        cfg = yaml.safe_load(f) or {}
+    data = request.get_json(silent=True) or {}
+    if "auto_merge" in data:
+        am = bool(data["auto_merge"])
+        cfg.setdefault("git", {})["auto_merge"] = am
+        cfg["git"]["strategy"] = "direct-main" if am else "branch-pr"
+    if "enabled" in data:
+        cfg["enabled"] = bool(data["enabled"])
+    if "build" in data:
+        cfg.setdefault("build", {})["command"] = data["build"] or None
+    if "test" in data:
+        cfg.setdefault("test", {})["command"] = data["test"] or None
+    tmp = path.with_suffix(".tmp")
+    with open(tmp, "w") as f:
+        yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+    tmp.rename(path)
+    return jsonify({"ok": True, "name": name, "auto_merge": cfg.get("git", {}).get("auto_merge", False)})
+
+
+@app.route("/api/projects/fresh", methods=["POST"])
+@require_api_key
+def fresh_project_route():
+    """Create a NEW repo and generate a task list from design docs.
+    Body: {name, design_docs, visibility?, build?, test?, auto_merge?}."""
+    data = request.get_json(silent=True) or {}
+    name = re.sub(r"[^\w.-]", "-", (data.get("name") or "").strip())
+    docs = (data.get("design_docs") or "").strip()
+    if not name or not docs:
+        return jsonify({"error": "name and design_docs are required"}), 400
+    if (PROJECTS_DIR / f"{name}.yaml").exists():
+        return jsonify({"error": f"Project '{name}' already exists"}), 409
+    try:
+        from lib.git_manager import create_repo, GitError
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"error": f"git module unavailable: {e}"}), 500
+    try:
+        repo = create_repo(name, description=data.get("description", ""),
+                           visibility=data.get("visibility", "private"))
+    except GitError as e:
+        return jsonify({"error": f"Repo creation failed: {e}"}), 502
+    _write_project_config(name, repo, data, owner_key_id=g.identity.get("id"))
+    tasks = _tasks_from_docs(name, docs, g.identity.get("user"))
+    if tasks:
+        _write_queue_tasks(name, tasks, append=False)
+    logger.info("Fresh project %s (%s): %d tasks", name, repo, len(tasks))
+    return jsonify({"ok": True, "name": name, "repo": repo,
+                    "tasks": [t["title"] for t in tasks]}), 201
+
+
+def _tasks_from_docs(project: str, docs: str, user: str) -> list:
+    """Use the planning model to turn design docs into a task list."""
+    try:
+        from lib.ollama_runner import OllamaRunner
+    except Exception:  # noqa: BLE001
+        return []
+    prompt = (
+        "Break the following project design document into a concise, ordered list "
+        "of concrete implementation tasks. Respond ONLY with a JSON array of "
+        '{"title": "...", "description": "..."} objects, most important first.\n\n'
+        "DESIGN DOCUMENT:\n" + docs
+    )
+    try:
+        res = OllamaRunner().run(prompt, role="plan", max_turns=1)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Task generation failed: %s", e)
+        return []
+    text = res.get("result", "") or ""
+    m = re.search(r"\[.*\]", text, re.DOTALL)
+    items = []
+    if m:
+        try:
+            items = json.loads(m.group(0))
+        except json.JSONDecodeError:
+            items = []
+    tasks = []
+    for i, it in enumerate(items[:25]):
+        if isinstance(it, dict) and it.get("title"):
+            tasks.append({
+                "id": "fresh-" + uuid.uuid4().hex[:8],
+                "title": str(it["title"])[:120],
+                "description": str(it.get("description", "")),
+                "project": project,
+                "priority": max(1, 100 - i),
+                "status": "pending",
+                "source": "design-docs",
+                "user": user,
+            })
+    return tasks
+
+
+# ---------------------------------------------------------------------------
+# Routes — Chat (talk to a model OR queue a task)
+# ---------------------------------------------------------------------------
+
+CHAT_DIR = STATE_DIR / "chat"
+
+
+def _chat_path(cid: str) -> Path:
+    return CHAT_DIR / (re.sub(r"[^\w-]", "", cid)[:40] + ".json")
+
+
+def _chat_reply(message: str, history: list, model: str = None) -> str:
+    """Provider-aware single reply (delegates to Ollama or Claude via ChatEngine).
+    An explicit Ollama model tag overrides the default chat model."""
+    from lib.chat_engine import ChatEngine
+    eng = ChatEngine(model=model) if model else ChatEngine()
+    parts = [
+        "<system>",
+        "You are TARS, a concise and capable AI assistant for an autonomous "
+        "coding system. Answer directly and helpfully.",
+        "</system>",
+    ]
+    for m in history[-20:]:
+        who = "User" if m.get("role") == "user" else "TARS"
+        parts.append(f"[{who}]: {m.get('content', '')}")
+    parts.append(f"[User]: {message}")
+    parts.append("Respond as TARS.")
+    return eng._run_claude("\n".join(parts))
+
+
+@app.route("/api/chat", methods=["POST"])
+@require_api_key
+def chat_route():
+    """Chat with a model (mode=chat) or queue a task (mode=task).
+    Body: {message, mode?, conversation_id?, project?}."""
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+
+    if data.get("mode") == "task":
+        project = (data.get("project") or "").strip()
+        if not project:
+            return jsonify({"error": "Select a project to queue a task"}), 400
+        if not _owns_project(g.identity, project):
+            return jsonify({"error": "No access to that project"}), 403
+        task = {
+            "id": "chat-" + uuid.uuid4().hex[:8],
+            "title": message.split("\n")[0][:80],
+            "description": message,
+            "project": project,
+            "priority": 50,
+            "status": "pending",
+            "source": "chat",
+            "user": g.identity.get("user"),
+        }
+        _write_queue_tasks(project, [task], append=True)
+        logger.info("Queued task %s on %s via chat", task["id"], project)
+        return jsonify({"type": "task", "task_id": task["id"],
+                        "project": project, "title": task["title"]})
+
+    # Chat mode
+    cid = data.get("conversation_id") or ("c-" + uuid.uuid4().hex[:10])
+    CHAT_DIR.mkdir(parents=True, exist_ok=True)
+    conv = _read_json(_chat_path(cid), {"messages": []})
+    history = conv.get("messages", [])
+    try:
+        reply = _chat_reply(message, history, (data.get("model") or "").strip() or None)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Chat failed: %s", e)
+        return jsonify({"error": f"Chat failed: {e}"}), 500
+    history.append({"role": "user", "content": message})
+    history.append({"role": "assistant", "content": reply})
+    conv["messages"] = history[-40:]
+    conv["updated"] = int(time.time())
+    conv["user"] = g.identity.get("user")
+    _write_json(_chat_path(cid), conv)
+    return jsonify({"type": "chat", "conversation_id": cid, "reply": reply})
+
+
+@app.route("/api/chat/generate", methods=["POST"])
+@require_api_key
+def chat_generate_route():
+    """Stateless chat completion. Body: {messages:[{role,content}], model?}.
+    For clients (e.g. the tars-survey site) that own conversation history per
+    user themselves — the controller just runs the model and returns a reply."""
+    data = request.get_json(silent=True) or {}
+    messages = data.get("messages") or []
+    if not messages:
+        return jsonify({"error": "messages is required"}), 400
+    last = messages[-1]
+    history = messages[:-1]
+    try:
+        reply = _chat_reply(last.get("content", ""), history,
+                            (data.get("model") or "").strip() or None)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("chat/generate failed: %s", e)
+        return jsonify({"error": f"Chat failed: {e}"}), 500
+    return jsonify({"reply": reply})
+
+
+# ---------------------------------------------------------------------------
+# Routes — Conversations (list / fetch / clear)
+# ---------------------------------------------------------------------------
+
+
+def _owns_chat(identity: dict, conv: dict) -> bool:
+    return bool(identity.get("is_admin")) or conv.get("user") == identity.get("user")
+
+
+@app.route("/api/chats", methods=["GET"])
+@require_api_key
+def list_chats_route():
+    """List the caller's conversations (admin sees all)."""
+    out = []
+    if CHAT_DIR.exists():
+        for p in sorted(CHAT_DIR.glob("*.json")):
+            conv = _read_json(p, {})
+            if not _owns_chat(g.identity, conv):
+                continue
+            msgs = conv.get("messages", [])
+            out.append({
+                "id": p.stem,
+                "updated": conv.get("updated"),
+                "count": len(msgs),
+                "preview": (msgs[0]["content"][:60] if msgs else ""),
+            })
+    out.sort(key=lambda c: c.get("updated") or 0, reverse=True)
+    return jsonify({"chats": out})
+
+
+@app.route("/api/chats/<cid>", methods=["GET"])
+@require_api_key
+def get_chat_route(cid):
+    """Fetch a single conversation's messages."""
+    conv = _read_json(_chat_path(cid), {})
+    if not conv or not _owns_chat(g.identity, conv):
+        return jsonify({"error": "Not found"}), 404
+    return jsonify({"id": cid, "messages": conv.get("messages", []),
+                    "updated": conv.get("updated")})
+
+
+@app.route("/api/chats/<cid>", methods=["DELETE"])
+@require_api_key
+def clear_chat_route(cid):
+    """Delete (clear) a conversation."""
+    path = _chat_path(cid)
+    conv = _read_json(path, {})
+    if conv and not _owns_chat(g.identity, conv):
+        return jsonify({"error": "No access"}), 403
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+    return jsonify({"ok": True, "cleared": cid})
+
+
+# ---------------------------------------------------------------------------
+# Routes — Models (spin up / spin down for chat)
+# ---------------------------------------------------------------------------
+
+
+def _ollama_client():
+    from lib.ollama_client import OllamaClient
+    return OllamaClient()
+
+
+@app.route("/api/models", methods=["GET"])
+@require_api_key
+def list_models_route():
+    """List available local models and which are currently loaded in memory."""
+    try:
+        c = _ollama_client()
+        loaded = {m.get("name"): m for m in c.ps()}
+        avail = c.list_models()
+    except Exception as e:  # noqa: BLE001 — Ollama may be down; report gracefully
+        return jsonify({"models": [], "loaded": [], "error": str(e)})
+    return jsonify({
+        "models": [{"name": m, "loaded": m in loaded} for m in avail],
+        "loaded": list(loaded.keys()),
+    })
+
+
+@app.route("/api/models/load", methods=["POST"])
+@require_api_key
+def load_model_route():
+    """Spin a model UP (load into memory)."""
+    model = ((request.get_json(silent=True) or {}).get("model") or "").strip()
+    if not model:
+        return jsonify({"error": "model is required"}), 400
+    try:
+        _ollama_client().load_model(model)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"error": str(e)}), 502
+    logger.info("Loaded model %s (requested by %s)", model, g.identity.get("user"))
+    return jsonify({"ok": True, "loaded": model})
+
+
+@app.route("/api/models/unload", methods=["POST"])
+@require_api_key
+def unload_model_route():
+    """Spin a model DOWN (unload from memory to free VRAM)."""
+    model = ((request.get_json(silent=True) or {}).get("model") or "").strip()
+    if not model:
+        return jsonify({"error": "model is required"}), 400
+    try:
+        _ollama_client().unload_model(model)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"error": str(e)}), 502
+    logger.info("Unloaded model %s (requested by %s)", model, g.identity.get("user"))
+    return jsonify({"ok": True, "unloaded": model})
 
 
 # ---------------------------------------------------------------------------
@@ -1252,10 +1780,374 @@ setInterval(refreshDaemon, 5000);
 """
 
 
+# NOTE: DASHBOARD_HTML above is the legacy dashboard (embedded the master key).
+# It is superseded by APP_HTML below, which key-gates in the browser and embeds
+# no secret. Kept defined for reference/rollback; no route serves it.
+
+APP_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TARS</title>
+<style>
+  :root{
+    --bg:#0d0e10; --panel:#16181c; --panel2:#1c1f24; --border:#2a2e35;
+    --text:#e6e7e9; --muted:#9aa0a8; --accent:#c96442; --accent2:#e0795a;
+    --good:#3fb950; --bad:#f85149; --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--text);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;}
+  button{font:inherit;cursor:pointer}
+  input,select,textarea{font:inherit}
+  a{color:var(--accent2);text-decoration:none}
+  .hidden{display:none !important}
+
+  /* Gate */
+  #gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+  #gate .card{width:380px;max-width:90vw;background:var(--panel);border:1px solid var(--border);
+    border-radius:16px;padding:32px;text-align:center}
+  #gate h1{margin:0 0 4px;font-size:26px;letter-spacing:.5px}
+  #gate p{color:var(--muted);margin:0 0 22px;font-size:13px}
+  .field{display:flex;flex-direction:column;gap:8px;text-align:left}
+  input,select,textarea{background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    border-radius:10px;padding:11px 13px;width:100%;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px 16px;font-weight:600}
+  .btn:hover{background:var(--accent2)}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .btn.ghost:hover{border-color:var(--accent)}
+  .btn.sm{padding:6px 11px;font-size:12px;border-radius:8px}
+  .btn.danger{background:transparent;border:1px solid var(--bad);color:var(--bad)}
+  .err{color:var(--bad);font-size:12px;min-height:16px;margin-top:10px}
+
+  /* App shell */
+  #app{display:flex;height:100vh}
+  #side{width:230px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;padding:16px 12px}
+  .brand{font-size:20px;font-weight:700;letter-spacing:3px;padding:8px 12px 18px}
+  .brand small{display:block;font-size:10px;letter-spacing:1px;color:var(--muted);font-weight:500;margin-top:2px}
+  .nav{display:flex;flex-direction:column;gap:2px;flex:1}
+  .nav button{display:flex;align-items:center;gap:10px;background:transparent;border:none;color:var(--muted);
+    padding:10px 12px;border-radius:9px;text-align:left;width:100%}
+  .nav button:hover{background:var(--panel2);color:var(--text)}
+  .nav button.active{background:var(--panel2);color:var(--text)}
+  .nav .ico{width:18px;text-align:center}
+  .who{border-top:1px solid var(--border);padding-top:12px;margin-top:8px;font-size:12px;color:var(--muted)}
+  .who b{color:var(--text)}
+  #main{flex:1;overflow:auto;padding:28px 34px}
+  h2.title{margin:0 0 4px;font-size:22px}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:13px}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:26px}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px}
+  .stat .n{font-size:28px;font-weight:700}
+  .stat .l{color:var(--muted);font-size:12px;margin-top:2px}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+  .panel h3{margin:0 0 14px;font-size:15px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  td code{background:var(--panel2);padding:2px 6px;border-radius:5px;font-size:12px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+  .pill.ok{background:rgba(63,185,80,.15);color:var(--good)}
+  .pill.off{background:rgba(248,81,73,.15);color:var(--bad)}
+  .pill.adm{background:rgba(201,100,66,.18);color:var(--accent2)}
+  .row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+  .row .field{flex:1;min-width:160px}
+  .keybox{background:#0f2417;border:1px solid var(--good);border-radius:10px;padding:14px;margin-bottom:16px}
+  .keybox code{display:block;font-size:14px;color:#9fe6ab;word-break:break-all;margin:6px 0 10px}
+  .muted{color:var(--muted)}
+  .soon{text-align:center;color:var(--muted);padding:60px 20px}
+  .soon .big{font-size:40px;margin-bottom:10px}
+  label.chk{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+  label.chk input{width:auto}
+  textarea{resize:vertical}
+
+  /* Chat */
+  .chatwrap{display:flex;flex-direction:column;height:calc(100vh - 56px)}
+  .chathead{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .modes{display:flex;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:3px}
+  .modebtn{background:transparent;border:none;color:var(--muted);padding:7px 15px;border-radius:8px;font-weight:600}
+  .modebtn.active{background:var(--accent);color:#fff}
+  #chatProj{max-width:210px}
+  .thread{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:6px 2px}
+  .msg{display:flex}
+  .msg.user{justify-content:flex-end}
+  .msg .b{max-width:74%;padding:11px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--border);white-space:pre-wrap;word-wrap:break-word}
+  .msg.user .b{background:var(--accent);border-color:var(--accent);color:#fff}
+  .msg.sys .b{background:transparent;border:1px dashed var(--border);color:var(--muted);font-size:13px;max-width:100%}
+  .composer{display:flex;gap:10px;align-items:flex-end;padding-top:12px;border-top:1px solid var(--border)}
+  .composer textarea{flex:1;resize:none;max-height:140px}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="card">
+    <h1>TARS</h1>
+    <p>Task Automation &amp; Repository Steward</p>
+    <div class="field">
+      <input id="gateKey" type="password" placeholder="Enter your API key" autocomplete="off"/>
+      <button class="btn" onclick="signIn()">Continue</button>
+    </div>
+    <div class="err" id="gateErr"></div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <aside id="side">
+    <div class="brand">TARS<small>CONTROL</small></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="who" id="who"></div>
+    <button class="btn ghost sm" style="margin-top:10px" onclick="signOut()">Sign out</button>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<script>
+const LS='tars_key';
+let ME=null;
+const $=s=>document.querySelector(s);
+function key(){return localStorage.getItem(LS)||''}
+async function api(path,opts){
+  opts=opts||{};
+  const r=await fetch(path,{method:opts.method||'GET',
+    headers:{'X-API-Key':key(),'Content-Type':'application/json'},
+    body:opts.body?JSON.stringify(opts.body):undefined});
+  if(r.status===401){signOut();throw new Error('Unauthorized')}
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
+  return j;
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function ago(ts){if(!ts)return '—';const d=Math.floor(Date.now()/1000)-ts;
+  if(d<60)return d+'s ago';if(d<3600)return Math.floor(d/60)+'m ago';
+  if(d<86400)return Math.floor(d/3600)+'h ago';return Math.floor(d/86400)+'d ago'}
+
+async function signIn(){
+  const k=$('#gateKey').value.trim();
+  if(!k){$('#gateErr').textContent='Enter a key';return}
+  localStorage.setItem(LS,k);
+  try{ME=await api('/api/whoami');boot()}
+  catch(e){localStorage.removeItem(LS);$('#gateErr').textContent='Invalid key'}
+}
+function signOut(){localStorage.removeItem(LS);ME=null;
+  $('#app').classList.add('hidden');$('#gate').classList.remove('hidden');$('#gateKey').value=''}
+
+const VIEWS=[
+  {id:'overview',label:'Overview',ico:'▦'},
+  {id:'projects',label:'Projects',ico:'❏'},
+  {id:'chat',label:'Chat',ico:'✦'},
+  {id:'admin',label:'Admin',ico:'⚙',admin:true},
+];
+function boot(){
+  $('#gate').classList.add('hidden');$('#app').classList.remove('hidden');
+  const nav=$('#nav');nav.innerHTML='';
+  VIEWS.filter(v=>!v.admin||ME.is_admin).forEach(v=>{
+    const b=document.createElement('button');b.dataset.id=v.id;
+    b.innerHTML='<span class="ico">'+v.ico+'</span>'+v.label;
+    b.onclick=()=>show(v.id);nav.appendChild(b);
+  });
+  $('#who').innerHTML='Signed in as <b>'+esc(ME.user)+'</b>'+(ME.is_admin?' <span class="pill adm">admin</span>':'');
+  show('overview');
+}
+function show(id){
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.id===id));
+  ({overview:viewOverview,projects:viewProjects,chat:viewChat,admin:viewAdmin}[id])();
+}
+
+async function viewOverview(){
+  $('#main').innerHTML='<h2 class="title">Overview</h2><p class="sub">Live cluster status</p><div id="ov">Loading…</div>';
+  try{
+    const s=await api('/api/status');
+    const ct=s.current_task;
+    $('#ov').innerHTML=
+      '<div class="cards">'+
+      stat(s.queue_length,'Queued tasks')+
+      stat(s.workers_online+'/'+s.workers_total,'Workers online')+
+      stat((s.active_projects||[]).length,'Active projects')+
+      stat(ct?'1':'0','Running now')+
+      '</div>'+
+      '<div class="panel"><h3>Current task</h3>'+
+      (ct?('<b>'+esc(ct.title)+'</b><div class="muted">project: '+esc(ct.project)+' · started '+ago(ct.started)+'</div>')
+          :'<span class="muted">Idle — nothing running.</span>')+'</div>';
+  }catch(e){$('#ov').innerHTML='<span class="muted">'+esc(e.message)+'</span>'}
+}
+function stat(n,l){return '<div class="stat"><div class="n">'+esc(n)+'</div><div class="l">'+esc(l)+'</div></div>'}
+
+async function viewProjects(){
+  $('#main').innerHTML=
+    '<h2 class="title">Projects</h2><p class="sub">Repos TARS works on</p>'+
+    '<div class="panel"><h3>Add an existing repo</h3><div id="addMsg"></div>'+
+      '<div class="row">'+
+        '<div class="field" style="flex:2"><label class="muted">Public GitHub URL or owner/repo</label><input id="pRepo" placeholder="https://github.com/owner/repo"/></div>'+
+        '<div class="field"><label class="muted">Build cmd (optional)</label><input id="pBuild" placeholder="npm run build"/></div>'+
+        '<div class="field"><label class="muted">Test cmd (optional)</label><input id="pTest" placeholder="pytest"/></div>'+
+      '</div>'+
+      '<div class="row" style="margin-top:12px">'+
+        '<label class="chk"><input type="checkbox" id="pAuto"/> Auto-merge (no PR)</label>'+
+        '<button class="btn" onclick="addProject()">Add project</button>'+
+      '</div></div>'+
+    '<div class="panel"><h3>Start a fresh project from design docs</h3><div id="freshMsg"></div>'+
+      '<div class="row"><div class="field"><label class="muted">Project name</label><input id="fName" placeholder="my-new-app"/></div></div>'+
+      '<div class="field" style="margin-top:10px"><label class="muted">Design documents</label>'+
+        '<textarea id="fDocs" rows="5" placeholder="Describe what to build — TARS creates the repo and turns this into a task list."></textarea></div>'+
+      '<div class="row" style="margin-top:12px"><button class="btn" onclick="freshProject()">Create repo &amp; generate tasks</button></div></div>'+
+    '<div class="panel"><h3>Your projects</h3><div id="projList">Loading…</div></div>';
+  loadProjects();
+}
+async function loadProjects(){
+  try{
+    const {projects}=await api('/api/projects');
+    if(!projects.length){$('#projList').innerHTML='<span class="muted">No projects yet.</span>';return}
+    let h='<table><tr><th>Project</th><th>Repo</th><th>Auto-merge</th><th>Build / Test</th></tr>';
+    projects.forEach(p=>{
+      h+='<tr><td><b>'+esc(p.name)+'</b></td><td><code>'+esc(p.repo||'—')+'</code></td>'+
+        '<td><label class="chk"><input type="checkbox" '+(p.auto_merge?'checked':'')+' onchange="toggleAuto(\''+esc(p.name)+'\',this.checked)"/> '+(p.auto_merge?'on':'off')+'</label></td>'+
+        '<td class="muted">'+esc(p.build||'—')+' / '+esc(p.test||'—')+'</td></tr>';
+    });
+    $('#projList').innerHTML=h+'</table>';
+  }catch(e){$('#projList').innerHTML='<span class="muted">'+esc(e.message)+'</span>'}
+}
+async function addProject(){
+  const repo=$('#pRepo').value.trim();const box=$('#addMsg');
+  if(!repo){box.innerHTML='<div class="err">Enter a repo URL</div>';return}
+  try{
+    const r=await api('/api/projects',{method:'POST',body:{repo_url:repo,build:$('#pBuild').value.trim(),test:$('#pTest').value.trim(),auto_merge:$('#pAuto').checked}});
+    box.innerHTML='<div class="keybox">Added <b>'+esc(r.name)+'</b> ('+esc(r.repo)+'). TARS will pick it up.</div>';
+    $('#pRepo').value='';$('#pBuild').value='';$('#pTest').value='';$('#pAuto').checked=false;loadProjects();
+  }catch(e){box.innerHTML='<div class="err">'+esc(e.message)+'</div>'}
+}
+async function toggleAuto(name,on){
+  try{await api('/api/projects/'+name+'/settings',{method:'POST',body:{auto_merge:on}})}
+  catch(e){alert(e.message)}
+  loadProjects();
+}
+async function freshProject(){
+  const name=$('#fName').value.trim();const docs=$('#fDocs').value.trim();const box=$('#freshMsg');
+  if(!name||!docs){box.innerHTML='<div class="err">Name and design docs required</div>';return}
+  box.innerHTML='<div class="muted">Creating repo and generating tasks… this can take a moment.</div>';
+  try{
+    const r=await api('/api/projects/fresh',{method:'POST',body:{name,design_docs:docs}});
+    box.innerHTML='<div class="keybox">Created <b>'+esc(r.repo)+'</b> with '+r.tasks.length+' tasks:<br><span class="muted">'+r.tasks.map(esc).join('<br>')+'</span></div>';
+    $('#fName').value='';$('#fDocs').value='';loadProjects();
+  }catch(e){box.innerHTML='<div class="err">'+esc(e.message)+'</div>'}
+}
+
+let CONV=null,MODE='chat',THREAD=[];
+async function viewChat(){
+  let projs=[];try{projs=(await api('/api/projects')).projects}catch(e){}
+  const opts=projs.map(p=>'<option value="'+esc(p.name)+'">'+esc(p.name)+'</option>').join('');
+  $('#main').innerHTML=
+    '<div class="chatwrap"><div class="chathead">'+
+      '<div class="modes"><button id="mChat" class="modebtn active" onclick="setMode(\'chat\')">✦ Chat</button>'+
+      '<button id="mTask" class="modebtn" onclick="setMode(\'task\')">➤ Queue task</button></div>'+
+      '<select id="chatProj" class="hidden">'+(opts||'<option value="">No projects</option>')+'</select>'+
+      '<div style="flex:1"></div><button class="btn ghost sm" onclick="newConv()">New chat</button>'+
+    '</div><div id="thread" class="thread"></div>'+
+    '<div class="composer"><textarea id="cInput" rows="1" placeholder="Message TARS…" onkeydown="chatKey(event)"></textarea>'+
+    '<button class="btn" onclick="sendChat()">Send</button></div></div>';
+  setMode(MODE);
+  if(!CONV)newConv(); else renderThread();
+}
+function setMode(m){MODE=m;
+  const a=$('#mChat'),b=$('#mTask');if(a)a.classList.toggle('active',m==='chat');if(b)b.classList.toggle('active',m==='task');
+  const sel=$('#chatProj');if(sel)sel.classList.toggle('hidden',m!=='task');
+  const inp=$('#cInput');if(inp)inp.placeholder=(m==='task')?'Describe a task to queue…':'Message TARS…';
+}
+function newConv(){CONV='c-'+Math.random().toString(36).slice(2,12);THREAD=[];renderThread()}
+function renderThread(){
+  const t=$('#thread');if(!t)return;
+  t.innerHTML=THREAD.length?THREAD.map(m=>'<div class="msg '+m.role+'"><div class="b">'+esc(m.text)+'</div></div>').join('')
+    :'<div class="soon"><div class="big">✦</div>Ask anything — or switch to <b>Queue task</b> to add work to a project.</div>';
+  t.scrollTop=t.scrollHeight;
+}
+function chatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat()}}
+async function sendChat(){
+  const inp=$('#cInput');const msg=inp.value.trim();if(!msg)return;inp.value='';
+  THREAD.push({role:'user',text:msg});
+  if(MODE==='task'){
+    const project=$('#chatProj').value;
+    if(!project){THREAD.push({role:'sys',text:'No project selected — add one in Projects first.'});renderThread();return}
+    renderThread();
+    try{const r=await api('/api/chat',{method:'POST',body:{message:msg,mode:'task',project}});
+      THREAD.push({role:'sys',text:'✓ Queued “'+r.title+'” on '+r.project+' ('+r.task_id+')'});}
+    catch(e){THREAD.push({role:'sys',text:'Error: '+e.message})}
+    renderThread();return;
+  }
+  THREAD.push({role:'assistant',text:'…'});renderThread();
+  try{const r=await api('/api/chat',{method:'POST',body:{message:msg,mode:'chat',conversation_id:CONV}});
+    CONV=r.conversation_id;THREAD[THREAD.length-1]={role:'assistant',text:r.reply};}
+  catch(e){THREAD[THREAD.length-1]={role:'assistant',text:'Error: '+e.message};}
+  renderThread();
+}
+
+async function viewAdmin(){
+  $('#main').innerHTML=
+    '<h2 class="title">Admin</h2><p class="sub">Issue and manage API keys for your friends</p>'+
+    '<div class="panel"><h3>Generate a key</h3>'+
+      '<div id="newKey"></div>'+
+      '<div class="row">'+
+        '<div class="field"><label class="muted">User / friend name</label><input id="kUser" placeholder="e.g. jordan"/></div>'+
+        '<label class="chk"><input type="checkbox" id="kAdmin"/> Admin</label>'+
+        '<button class="btn" onclick="genKey()">Generate</button>'+
+      '</div></div>'+
+    '<div class="panel"><h3>Issued keys</h3><div id="keys">Loading…</div></div>';
+  loadKeys();
+}
+async function genKey(){
+  const user=$('#kUser').value.trim();const box=$('#newKey');
+  if(!user){box.innerHTML='<div class="err">Enter a user name</div>';return}
+  try{
+    const r=await api('/api/admin/keys',{method:'POST',body:{user,is_admin:$('#kAdmin').checked}});
+    box.innerHTML='<div class="keybox"><b>Key for '+esc(user)+'</b> — copy it now, it won\'t be shown again:'+
+      '<code>'+esc(r.key)+'</code>'+
+      '<button class="btn sm" onclick="navigator.clipboard.writeText(\''+r.key+'\')">Copy</button></div>';
+    $('#kUser').value='';$('#kAdmin').checked=false;loadKeys();
+  }catch(e){box.innerHTML='<div class="err">'+esc(e.message)+'</div>'}
+}
+async function loadKeys(){
+  try{
+    const {keys}=await api('/api/admin/keys');
+    if(!keys.length){$('#keys').innerHTML='<span class="muted">No keys yet.</span>';return}
+    let h='<table><tr><th>User</th><th>Key</th><th>Scopes</th><th>Created</th><th>Status</th><th></th></tr>';
+    keys.forEach(k=>{
+      h+='<tr><td>'+esc(k.user)+(k.is_admin?' <span class="pill adm">admin</span>':'')+'</td>'+
+        '<td><code>'+esc(k.key_prefix)+'…</code></td>'+
+        '<td class="muted">'+esc((k.scopes||[]).join(', '))+'</td>'+
+        '<td class="muted">'+ago(k.created)+'</td>'+
+        '<td>'+(k.revoked?'<span class="pill off">revoked</span>':'<span class="pill ok">active</span>')+'</td>'+
+        '<td>'+(k.revoked?'':'<button class="btn sm danger" onclick="revoke(\''+k.id+'\')">Revoke</button>')+'</td></tr>';
+    });
+    $('#keys').innerHTML=h+'</table>';
+  }catch(e){$('#keys').innerHTML='<span class="muted">'+esc(e.message)+'</span>'}
+}
+async function revoke(id){
+  if(!confirm('Revoke this key? The friend loses access immediately.'))return;
+  try{await api('/api/admin/keys/'+id+'/revoke',{method:'POST'});loadKeys()}
+  catch(e){alert(e.message)}
+}
+
+// Auto-resume a saved session.
+(async()=>{
+  if(key()){try{ME=await api('/api/whoami');boot()}catch(e){signOut()}}
+  $('#gateKey').addEventListener('keydown',e=>{if(e.key==='Enter')signIn()});
+})();
+</script>
+</body>
+</html>
+"""
+
+
 @app.route("/", methods=["GET"])
-def dashboard():
-    """Visual dashboard showing cluster status, tasks, workers, metrics."""
-    return render_template_string(DASHBOARD_HTML, api_key=API_KEY)
+def app_home():
+    """Friend-facing TARS app. Key-gated in the browser — embeds no secret."""
+    from flask import Response
+    return Response(APP_HTML, mimetype="text/html")
 
 
 # ---------------------------------------------------------------------------

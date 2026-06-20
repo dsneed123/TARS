@@ -35,6 +35,16 @@ class ChatEngine:
         # channel_id -> deque of {"role": "user"|"assistant", "name": str, "content": str}
         self._histories: dict[str, deque] = {}
 
+        # Provider routing: delegate Discord chat to the local Ollama model too.
+        self._backend = None
+        if os.environ.get("TARS_LLM_PROVIDER", "").lower() == "ollama":
+            try:
+                from ollama_runner import OllamaRunner
+            except ImportError:  # imported as lib.chat_engine (PYTHONPATH=TARS_HOME)
+                from lib.ollama_runner import OllamaRunner
+            self._backend = OllamaRunner(model=model, max_turns=1)
+            logger.info("ChatEngine delegating to Ollama backend")
+
     def get_history(self, channel_id: str) -> deque:
         """Get or create conversation history for a channel."""
         if channel_id not in self._histories:
@@ -131,7 +141,13 @@ class ChatEngine:
         return response_text
 
     def _run_claude(self, prompt: str) -> str:
-        """Run Claude CLI subprocess synchronously. Called from executor."""
+        """Run the model synchronously. Called from executor."""
+        if self._backend is not None:
+            res = self._backend.run(prompt, role="chat")
+            if res.get("is_error"):
+                raise RuntimeError(res.get("result", "Ollama error"))
+            return res.get("result") or "I didn't generate a response. Please try rephrasing."
+
         import json
         import subprocess
         import tempfile

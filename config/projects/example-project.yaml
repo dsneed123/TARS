@@ -8,6 +8,8 @@ git:
   strategy: "branch-pr"         # branch-pr | auto-merge | direct-main
   base_branch: "main"
   pr_labels: ["tars-auto"]
+  auto_merge: false             # true = merge straight to base_branch, no PR
+                                # (overrides strategy -> direct-main)
 
 build:
   type: "generic"               # generic | xcode
@@ -29,5 +31,8 @@ auto_discover:
     - "code cleanup"
 
 claude:
-  model: "sonnet"               # sonnet | opus
+  # Under TARS_LLM_PROVIDER=ollama (default), model routing is role-based
+  # (see tars.conf OLLAMA_*_MODEL) and this field is ignored unless you set a
+  # real Ollama tag here (e.g. "qwen2.5-coder:32b") to override for this project.
+  model: "sonnet"               # claude alias (ignored under ollama) | ollama tag
   max_turns: 20

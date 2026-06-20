@@ -132,6 +132,18 @@ gm.create_branch(os.environ['TARS_TASK_ID'])
 
 WORK_DIR="${TARS_REPOS}/$(echo "${REPO}" | awk -F/ '{print $NF}')"
 
+# --- Step 3b: Ensure persistent project context (local models only) ---
+# Generate a one-time repo digest so small-context local models re-understand
+# the codebase fast. Best-effort; never blocks the task.
+if [ "${TARS_LLM_PROVIDER:-claude}" = "ollama" ] && [ ! -f "${WORK_DIR}/.tars/context.md" ]; then
+    log "INFO" "Generating project context digest..."
+    TARS_WORK_DIR="$WORK_DIR" "${TARS_PYTHON}" -c "
+from lib.ollama_runner import OllamaRunner
+import os
+OllamaRunner().generate_context(os.environ['TARS_WORK_DIR'])
+" >> "$LOG_FILE" 2>&1 || log "WARN" "Context generation skipped"
+fi
+
 # --- Step 4: Implementation phase (Claude writes code) ---
 log "INFO" "Running Claude implementation..."
 notify_django "in_progress"

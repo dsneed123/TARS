@@ -39,20 +39,31 @@ else
     ((ERRORS++))
 fi
 
-# Claude CLI
-if command -v "$CLAUDE_CMD" &>/dev/null; then
-    CLAUDE_VER=$("$CLAUDE_CMD" --version 2>&1 | head -1 || echo "unknown")
-    ok "Claude CLI (${CLAUDE_VER})"
-
-    # Check authentication
-    if "$CLAUDE_CMD" -p "say ok" --output-format json --max-turns 1 &>/dev/null; then
-        ok "Claude CLI authenticated"
+# LLM provider
+if [ "${TARS_LLM_PROVIDER:-claude}" = "ollama" ]; then
+    # Ollama (local models)
+    if "${SCRIPT_DIR}/tars-ollama-check.sh"; then
+        ok "Ollama provider ready"
     else
-        warn "Claude CLI may not be authenticated (run: claude auth)"
+        fail "Ollama check failed (see above)"
+        ((ERRORS++))
     fi
 else
-    fail "claude CLI not found (install: npm install -g @anthropic-ai/claude-code)"
-    ((ERRORS++))
+    # Claude CLI
+    if command -v "$CLAUDE_CMD" &>/dev/null; then
+        CLAUDE_VER=$("$CLAUDE_CMD" --version 2>&1 | head -1 || echo "unknown")
+        ok "Claude CLI (${CLAUDE_VER})"
+
+        # Check authentication
+        if "$CLAUDE_CMD" -p "say ok" --output-format json --max-turns 1 &>/dev/null; then
+            ok "Claude CLI authenticated"
+        else
+            warn "Claude CLI may not be authenticated (run: claude auth)"
+        fi
+    else
+        fail "claude CLI not found (install: npm install -g @anthropic-ai/claude-code)"
+        ((ERRORS++))
+    fi
 fi
 
 # gh CLI
