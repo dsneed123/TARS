@@ -98,6 +98,7 @@ class OllamaClient:
         timeout: Optional[int] = None,
         keep_alive: str = "30m",
         num_predict: Optional[int] = None,
+        stop: Optional[list] = None,
     ) -> dict:
         """Run a non-streaming chat completion.
 
@@ -120,6 +121,9 @@ class OllamaClient:
         if num_predict is not None:
             # Cap output length so replies stay fast when a long answer isn't needed.
             payload["options"]["num_predict"] = num_predict
+        if stop:
+            # Stop sequences — hard stop if the model tries to write the next turn.
+            payload["options"]["stop"] = stop
         if tools:
             payload["tools"] = tools
 

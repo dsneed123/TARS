@@ -214,6 +214,33 @@ class OllamaRunner:
             logger.error("Ollama error (role=%s): %s", role, e)
             return self._result(f"Ollama error: {e}", 0, 0, start, is_error=True)
 
+    def chat_messages(self, messages, model=None, system=None, num_predict=None) -> dict:
+        """Role-based chat: pass proper {role, content} messages so the model
+        emits exactly ONE assistant turn and stops — instead of continuing the
+        whole conversation (writing both sides) like a single text transcript does."""
+        resolved = self._resolve_model(model, "chat")
+        msgs = []
+        if system:
+            msgs.append({"role": "system", "content": system})
+        for m in messages:
+            role = m.get("role", "user")
+            if role not in ("user", "assistant", "system"):
+                role = "user"
+            msgs.append({"role": role, "content": m.get("content", "")})
+        start = time.time()
+        try:
+            resp = self.client.chat(
+                resolved, msgs, num_ctx=NUM_CTX, num_predict=num_predict,
+                # Safety net: never let it start a new turn for the user.
+                stop=["\n[User]:", "[User]:", "\nUser:", "\n[USER]:"],
+            )
+        except OllamaError as e:
+            return self._result(f"Ollama error: {e}", 0, 0, start, is_error=True)
+        msg = resp.get("message", {}) or {}
+        text = strip_think(msg.get("content", "")).strip()
+        return self._result(text, resp.get("prompt_eval_count", 0),
+                           resp.get("eval_count", 0), start)
+
     def run_with_prompt_file(
         self, prompt_file: str, variables: Optional[dict] = None, **kwargs
     ) -> dict:

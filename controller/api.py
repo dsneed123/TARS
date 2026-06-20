@@ -637,27 +637,35 @@ def _chat_reply(message: str, history: list, model: str = None) -> str:
 
     Freeform models get no system prompt (open chat); other chat models get a
     light, NON-coding assistant persona — none are framed as coding agents."""
-    from lib.chat_engine import ChatEngine
     # One model at a time: free other models before this reply loads its own.
     effective = model or os.environ.get("OLLAMA_CHAT_MODEL", "qwen2.5:7b")
     _enforce_single_model(effective)
-    eng = ChatEngine(model=model) if model else ChatEngine()
-
     freeform = _is_freeform(effective)
-    parts = []
-    if not freeform:
-        parts += [
-            "<system>",
-            "You are TARS, a helpful, concise assistant. Answer directly.",
-            "</system>",
-        ]
-    label = "Assistant" if freeform else "TARS"
+    num_predict = int(os.environ.get("OLLAMA_CHAT_NUM_PREDICT", "768"))
+
+    if os.environ.get("TARS_LLM_PROVIDER", "").lower() == "ollama":
+        # Proper role-based messages → the model produces ONE assistant turn and
+        # stops, instead of continuing the whole dialogue (writing both sides).
+        from lib.ollama_runner import OllamaRunner
+        system = None if freeform else "You are TARS, a helpful, concise assistant. Answer directly."
+        msgs = [{"role": m.get("role", "user"), "content": m.get("content", "")}
+                for m in history[-20:]]
+        msgs.append({"role": "user", "content": message})
+        res = OllamaRunner(model=effective, max_turns=1).chat_messages(
+            msgs, model=effective, system=system, num_predict=num_predict
+        )
+        if res.get("is_error"):
+            raise RuntimeError(res.get("result", "chat failed"))
+        return res.get("result", "")
+
+    # Fallback (claude provider): single text prompt via ChatEngine.
+    from lib.chat_engine import ChatEngine
+    eng = ChatEngine(model=model) if model else ChatEngine()
+    parts = ["<system>", "You are TARS, a helpful, concise assistant.", "</system>"]
     for m in history[-20:]:
-        who = "User" if m.get("role") == "user" else label
+        who = "User" if m.get("role") == "user" else "TARS"
         parts.append(f"[{who}]: {m.get('content', '')}")
     parts.append(f"[User]: {message}")
-    if not freeform:
-        parts.append("Respond as TARS.")
     return eng._run_claude("\n".join(parts))
 
 
