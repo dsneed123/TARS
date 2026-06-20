@@ -142,6 +142,8 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8"/>
   @media(max-width:760px){.grid{grid-template-columns:1fr}}
   .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px}
   .panel h3{margin:0 0 12px;font-size:14px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  /* Fixed-height box prevents Chart.js from re-growing the canvas every update. */
+  .chartwrap{position:relative;height:180px;width:100%}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border)}
   th{color:var(--muted);font-size:11px;text-transform:uppercase}
@@ -158,10 +160,10 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8"/>
   <div class="cards" id="cards"></div>
   <div class="panel"><h3>Spun-up models (Ollama)</h3><div id="models">…</div></div>
   <div class="grid">
-    <div class="panel"><h3>System memory (GB)</h3><canvas id="ramChart" height="150"></canvas></div>
-    <div class="panel"><h3>GPU utilization (%)</h3><canvas id="vramChart" height="150"></canvas></div>
-    <div class="panel"><h3>Model memory loaded (GB)</h3><canvas id="modelChart" height="150"></canvas></div>
-    <div class="panel"><h3>Load average (1-min)</h3><canvas id="loadChart" height="150"></canvas></div>
+    <div class="panel"><h3>System memory (GB)</h3><div class="chartwrap"><canvas id="ramChart"></canvas></div></div>
+    <div class="panel"><h3>GPU utilization (%)</h3><div class="chartwrap"><canvas id="vramChart"></canvas></div></div>
+    <div class="panel"><h3>Model memory loaded (GB)</h3><div class="chartwrap"><canvas id="modelChart"></canvas></div></div>
+    <div class="panel"><h3>Load average (1-min)</h3><div class="chartwrap"><canvas id="loadChart"></canvas></div></div>
   </div>
 </main>
 <script>
