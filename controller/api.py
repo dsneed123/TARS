@@ -596,10 +596,30 @@ def _chat_path(cid: str) -> Path:
     return CHAT_DIR / (re.sub(r"[^\w-]", "", cid)[:40] + ".json")
 
 
+def _enforce_single_model(keep: str) -> None:
+    """Website policy: only ONE model spun up at a time. Unload everything except
+    `keep` so chat usage can't pile models into memory."""
+    if not keep:
+        return
+    try:
+        c = _ollama_client()
+        for m in c.loaded_models():
+            if m and m != keep:
+                try:
+                    c.unload_model(m)
+                except Exception:  # noqa: BLE001
+                    pass
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _chat_reply(message: str, history: list, model: str = None) -> str:
     """Provider-aware single reply (delegates to Ollama or Claude via ChatEngine).
     An explicit Ollama model tag overrides the default chat model."""
     from lib.chat_engine import ChatEngine
+    # One model at a time: free other models before this reply loads its own.
+    effective = model or os.environ.get("OLLAMA_CHAT_MODEL", "qwen2.5:7b")
+    _enforce_single_model(effective)
     eng = ChatEngine(model=model) if model else ChatEngine()
     parts = [
         "<system>",
@@ -771,16 +791,26 @@ def list_models_route():
 @app.route("/api/models/load", methods=["POST"])
 @require_api_key
 def load_model_route():
-    """Spin a model UP (load into memory)."""
+    """Spin a model UP (load into memory). Enforces ONE model loaded at a time:
+    any other spun-up model is unloaded first so memory can't pile up."""
     model = ((request.get_json(silent=True) or {}).get("model") or "").strip()
     if not model:
         return jsonify({"error": "model is required"}), 400
     try:
-        _ollama_client().load_model(model)
+        client = _ollama_client()
+        evicted = []
+        for m in client.loaded_models():
+            if m and m != model:
+                try:
+                    client.unload_model(m)
+                    evicted.append(m)
+                except Exception:  # noqa: BLE001
+                    pass
+        client.load_model(model)
     except Exception as e:  # noqa: BLE001
         return jsonify({"error": str(e)}), 502
-    logger.info("Loaded model %s (requested by %s)", model, g.identity.get("user"))
-    return jsonify({"ok": True, "loaded": model})
+    logger.info("Loaded model %s (evicted %s) for %s", model, evicted, g.identity.get("user"))
+    return jsonify({"ok": True, "loaded": model, "evicted": evicted})
 
 
 @app.route("/api/models/unload", methods=["POST"])
