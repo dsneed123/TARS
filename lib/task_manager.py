@@ -172,8 +172,9 @@ class TaskManager:
 
         return tasks
 
-    def get_auto_discovered_tasks(self, project_name: str) -> list[dict]:
-        """Get auto-discovered improvement tasks via Claude analysis."""
+    def get_auto_discovered_tasks(self, project_name: str, force: bool = False) -> list[dict]:
+        """Get auto-discovered improvement tasks via model analysis.
+        force=True bypasses the enabled/interval gates (user-triggered button)."""
         tasks = []
         try:
             cfg = load_project(project_name)
@@ -181,14 +182,14 @@ class TaskManager:
             return tasks
 
         auto_cfg = cfg.get("auto_discover", {})
-        if not auto_cfg.get("enabled", False):
+        if not force and not auto_cfg.get("enabled", False):
             return tasks
 
         # Check if enough time has passed since last discovery
         import time
         last_run = self.state.get("last_discovery", {}).get(project_name, 0)
         interval = auto_cfg.get("interval", 86400)
-        if time.time() - last_run < interval:
+        if not force and time.time() - last_run < interval:
             return tasks
 
         # Run discovery via Claude

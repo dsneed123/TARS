@@ -485,6 +485,27 @@ def add_project_route():
     return jsonify({"ok": True, "name": short, "repo": repo}), 201
 
 
+@app.route("/api/projects/<name>/discover", methods=["POST"])
+@require_api_key
+def discover_tasks_route(name):
+    """Auto-populate: analyze the repo and return suggested improvement tasks
+    (does NOT queue them — caller persists). Clones the repo + runs the model."""
+    if not _owns_project(g.identity, name):
+        return jsonify({"error": "No access to that project"}), 403
+    if not (PROJECTS_DIR / f"{name}.yaml").exists():
+        return jsonify({"error": "Project not found"}), 404
+    try:
+        from lib.task_manager import TaskManager
+        tasks = TaskManager().get_auto_discovered_tasks(name, force=True)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("discover failed for %s: %s", name, e)
+        return jsonify({"error": f"Discovery failed: {e}"}), 502
+    return jsonify({"ok": True, "tasks": [
+        {"title": t.get("title", ""), "description": t.get("description", "")}
+        for t in tasks
+    ]})
+
+
 @app.route("/api/projects/<name>/settings", methods=["POST"])
 @require_api_key
 def project_settings_route(name):
