@@ -485,6 +485,51 @@ def add_project_route():
     return jsonify({"ok": True, "name": short, "repo": repo}), 201
 
 
+@app.route("/api/projects/<name>/pages", methods=["POST"])
+@require_api_key
+def pages_route(name):
+    """Enable GitHub Pages for the project's repo (or report it if already on),
+    so a static site goes live. Returns the published URL."""
+    if not _owns_project(g.identity, name):
+        return jsonify({"error": "No access to that project"}), 403
+    path = PROJECTS_DIR / f"{name}.yaml"
+    if not path.exists():
+        return jsonify({"error": "Project not found"}), 404
+    with open(path) as f:
+        cfg = yaml.safe_load(f) or {}
+    repo = cfg.get("repo", "")
+    if not repo:
+        return jsonify({"error": "Project has no repo"}), 400
+
+    gh = os.environ.get("GH_CMD", "gh")
+    branch = cfg.get("git", {}).get("base_branch", "main")
+    try:
+        # Already enabled?
+        chk = subprocess.run([gh, "api", f"repos/{repo}/pages"],
+                             capture_output=True, text=True, timeout=30)
+        if chk.returncode == 0:
+            url = json.loads(chk.stdout or "{}").get("html_url", "")
+            return jsonify({"ok": True, "enabled": True, "url": url, "already": True})
+        # Enable Pages from the base branch root.
+        en = subprocess.run(
+            [gh, "api", "-X", "POST", f"repos/{repo}/pages",
+             "-f", f"source[branch]={branch}", "-f", "source[path]=/"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if en.returncode != 0:
+            detail = (en.stderr or en.stdout).strip()[:300]
+            return jsonify({"error": f"Could not enable Pages: {detail}"}), 502
+        url = json.loads(en.stdout or "{}").get("html_url", "")
+        if not url:
+            owner, _, rname = repo.partition("/")
+            url = f"https://{owner}.github.io/{rname}/"
+        return jsonify({"ok": True, "enabled": True, "url": url, "created": True})
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "GitHub Pages request timed out"}), 504
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"error": str(e)}), 502
+
+
 @app.route("/api/projects/<name>/discover", methods=["POST"])
 @require_api_key
 def discover_tasks_route(name):
