@@ -361,7 +361,7 @@ class OllamaRunner:
     # ---------------------------------------------------------------- agent mode
     def _run_agent(self, prompt, model, cwd, max_turns, start, append_system) -> dict:
         system = (
-            os.environ.get("TARS_PERSONA", "You are TARS, an autonomous coding AI developed by Davis Sneed.")
+            os.environ.get("TARS_PERSONA", "You are TARS, an AI assistant for software development and business, built by Davis Sneed. You help users write, test, and ship code and handle business tasks. You are a coding and business tool — NOT a military, combat, defense, or science-fiction system.")
             + " You are an autonomous coding agent working inside the "
             f"directory `{cwd}`. Use the provided tools to inspect and modify files "
             "and to run commands (builds, tests). All paths are relative to the "
@@ -524,7 +524,7 @@ class OllamaRunner:
 
     def _run_edit(self, prompt, model, cwd, max_turns, start, append_system) -> dict:
         system = (
-            os.environ.get("TARS_PERSONA", "You are TARS, an autonomous coding AI developed by Davis Sneed.")
+            os.environ.get("TARS_PERSONA", "You are TARS, an AI assistant for software development and business, built by Davis Sneed. You help users write, test, and ship code and handle business tasks. You are a coding and business tool — NOT a military, combat, defense, or science-fiction system.")
             + " You are a code-fixing agent working in directory "
             f"`{cwd}`. You cannot call functions, so you act using plain-text "
             "directives that the system executes for you:\n"

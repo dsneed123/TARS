@@ -717,7 +717,7 @@ def _chat_reply(message: str, history: list, model: str = None) -> str:
         # Proper role-based messages → the model produces ONE assistant turn and
         # stops, instead of continuing the whole dialogue (writing both sides).
         from lib.ollama_runner import OllamaRunner
-        persona = os.environ.get("TARS_PERSONA", "You are TARS, an autonomous coding AI developed by Davis Sneed.")
+        persona = os.environ.get("TARS_PERSONA", "You are TARS, an AI assistant for software development and business, built by Davis Sneed. You help users write, test, and ship code and handle business tasks. You are a coding and business tool — NOT a military, combat, defense, or science-fiction system.")
         system = None if freeform else persona + " Be helpful and concise; answer directly."
         msgs = [{"role": m.get("role", "user"), "content": m.get("content", "")}
                 for m in history[-20:]]
