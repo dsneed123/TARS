@@ -537,11 +537,14 @@ def fresh_project_route():
         return jsonify({"error": f"Repo creation failed: {e}"}), 502
     _write_project_config(name, repo, data, owner_key_id=g.identity.get("id"))
     tasks = _tasks_from_docs(name, docs, g.identity.get("user"))
-    if tasks:
+    # auto_queue defaults True (controller's own SPA). The website passes false
+    # and persists tasks itself (as Django Tasks) so it owns the status link.
+    if tasks and data.get("auto_queue", True):
         _write_queue_tasks(name, tasks, append=False)
     logger.info("Fresh project %s (%s): %d tasks", name, repo, len(tasks))
     return jsonify({"ok": True, "name": name, "repo": repo,
-                    "tasks": [t["title"] for t in tasks]}), 201
+                    "tasks": [{"title": t["title"], "description": t.get("description", "")}
+                              for t in tasks]}), 201
 
 
 def _tasks_from_docs(project: str, docs: str, user: str) -> list:
@@ -2098,7 +2101,7 @@ async function freshProject(){
   box.innerHTML='<div class="muted">Creating repo and generating tasks… this can take a moment.</div>';
   try{
     const r=await api('/api/projects/fresh',{method:'POST',body:{name,design_docs:docs}});
-    box.innerHTML='<div class="keybox">Created <b>'+esc(r.repo)+'</b> with '+r.tasks.length+' tasks:<br><span class="muted">'+r.tasks.map(esc).join('<br>')+'</span></div>';
+    box.innerHTML='<div class="keybox">Created <b>'+esc(r.repo)+'</b> with '+r.tasks.length+' tasks:<br><span class="muted">'+r.tasks.map(function(t){return esc(t.title||t)}).join('<br>')+'</span></div>';
     $('#fName').value='';$('#fDocs').value='';loadProjects();
   }catch(e){box.innerHTML='<div class="err">'+esc(e.message)+'</div>'}
 }
