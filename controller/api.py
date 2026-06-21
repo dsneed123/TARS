@@ -543,8 +543,8 @@ def fresh_project_route():
     data = request.get_json(silent=True) or {}
     name = re.sub(r"[^\w.-]", "-", (data.get("name") or "").strip())
     docs = (data.get("design_docs") or "").strip()
-    if not name or not docs:
-        return jsonify({"error": "name and design_docs are required"}), 400
+    if not name:
+        return jsonify({"error": "name is required"}), 400
     if (PROJECTS_DIR / f"{name}.yaml").exists():
         return jsonify({"error": f"Project '{name}' already exists"}), 409
     try:
@@ -557,7 +557,8 @@ def fresh_project_route():
     except GitError as e:
         return jsonify({"error": f"Repo creation failed: {e}"}), 502
     _write_project_config(name, repo, data, owner_key_id=g.identity.get("id"))
-    tasks = _tasks_from_docs(name, docs, g.identity.get("user"))
+    # Design docs are optional — only generate a task list if they were given.
+    tasks = _tasks_from_docs(name, docs, g.identity.get("user")) if docs else []
     # auto_queue defaults True (controller's own SPA). The website passes false
     # and persists tasks itself (as Django Tasks) so it owns the status link.
     if tasks and data.get("auto_queue", True):
