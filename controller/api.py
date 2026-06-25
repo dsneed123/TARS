@@ -551,6 +551,63 @@ def discover_tasks_route(name):
     ]})
 
 
+@app.route("/api/projects/<name>/go", methods=["POST"])
+@require_api_key
+def go_start_route(name):
+    """TARS Go — start an autonomous goal-directed session for a project.
+    Body: {description: str}
+    Returns: {session_id, status}"""
+    if not _owns_project(g.identity, name):
+        return jsonify({"error": "No access to that project"}), 403
+    path = PROJECTS_DIR / f"{name}.yaml"
+    if not path.exists():
+        return jsonify({"error": "Project not found"}), 404
+    data = request.get_json(silent=True) or {}
+    description = (data.get("description") or "").strip()
+    if not description:
+        return jsonify({"error": "description is required"}), 400
+
+    import yaml as _yaml
+    with open(path) as f:
+        project_cfg = _yaml.safe_load(f) or {}
+
+    # Ensure the repo is cloned so the runner has a working directory
+    try:
+        from lib.git_manager import GitManager
+        gm = GitManager(project_cfg.get("repo", ""))
+        work_dir = str(gm.ensure_cloned())
+    except Exception as e:
+        return jsonify({"error": f"Could not clone repo: {e}"}), 502
+
+    from lib.go_runner import create_session, run_go_session
+    state = create_session(name, description)
+    run_go_session(state["id"], project_cfg, work_dir)
+    return jsonify({"session_id": state["id"], "status": state["status"]})
+
+
+@app.route("/api/projects/<name>/go/<session_id>", methods=["GET"])
+@require_api_key
+def go_status_route(name, session_id):
+    """Poll a TARS Go session's current state."""
+    if not _owns_project(g.identity, name):
+        return jsonify({"error": "No access to that project"}), 403
+    from lib.go_runner import load_session
+    state = load_session(session_id)
+    if not state or state.get("project") != name:
+        return jsonify({"error": "Session not found"}), 404
+    return jsonify(state)
+
+
+@app.route("/api/projects/<name>/go", methods=["GET"])
+@require_api_key
+def go_list_route(name):
+    """List recent TARS Go sessions for a project."""
+    if not _owns_project(g.identity, name):
+        return jsonify({"error": "No access to that project"}), 403
+    from lib.go_runner import list_sessions
+    return jsonify({"sessions": list_sessions(name)})
+
+
 @app.route("/api/projects/<name>/settings", methods=["POST"])
 @require_api_key
 def project_settings_route(name):
@@ -566,7 +623,8 @@ def project_settings_route(name):
     if "auto_merge" in data:
         am = bool(data["auto_merge"])
         cfg.setdefault("git", {})["auto_merge"] = am
-        cfg["git"]["strategy"] = "direct-main" if am else "branch-pr"
+        # auto_merge -> open a PR and squash-merge it; off -> leave PR open.
+        cfg["git"]["strategy"] = "auto-merge" if am else "branch-pr"
     if "enabled" in data:
         cfg["enabled"] = bool(data["enabled"])
     if "build" in data:
