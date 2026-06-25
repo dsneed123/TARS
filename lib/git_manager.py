@@ -55,6 +55,8 @@ def create_repo(
         result = subprocess.run(
             args, capture_output=True, text=True, timeout=60,
         )
+    except FileNotFoundError:
+        raise GitError(f"gh CLI not found at '{gh_cmd}' — set GH_CMD env var to the full path")
     except subprocess.TimeoutExpired:
         raise GitError(f"gh repo create timed out for {name}")
 
@@ -158,8 +160,6 @@ class GitManager:
         if self.work_dir.exists():
             logger.info("Fetching %s", self.repo)
             self._run_git(["fetch", "origin"])
-            self._run_git(["checkout", self.base_branch])
-            self._run_git(["pull", "origin", self.base_branch])
         else:
             logger.info("Cloning %s", self.repo)
             subprocess.run(
@@ -167,7 +167,48 @@ class GitManager:
                 check=True, capture_output=True, text=True, timeout=300,
             )
 
+        # A freshly auto-created repo has no commits and no base branch yet, so
+        # `git checkout <base>` would fail ("pathspec 'main' did not match...").
+        # Seed an initial commit on the base branch so all later git ops work.
+        if not self._remote_has_base_branch():
+            self._bootstrap_base_branch()
+        else:
+            self._run_git(["checkout", self.base_branch])
+            self._run_git(["pull", "origin", self.base_branch])
+
         return self.work_dir
+
+    def _remote_has_base_branch(self) -> bool:
+        """True if origin already has the configured base branch."""
+        out = self._run_git(["ls-remote", "--heads", "origin", self.base_branch])
+        return bool(out.strip())
+
+    def _ensure_identity(self) -> None:
+        """Set a repo-local commit identity if none is configured, so the
+        bootstrap commit never fails on a fresh box."""
+        try:
+            email = self._run_git(["config", "user.email"])
+        except GitError:
+            email = ""
+        if not email:
+            self._run_git(["config", "user.email", "tars@usetars.dev"])
+            self._run_git(["config", "user.name", "TARS Bot"])
+
+    def _bootstrap_base_branch(self) -> None:
+        """Initialize an empty repo with a first commit on the base branch."""
+        logger.info("Repo %s is empty — bootstrapping base branch '%s'",
+                    self.repo, self.base_branch)
+        self._ensure_identity()
+        # Create/reset the local base branch (the clone leaves an unborn branch
+        # whose name may differ from the configured base, e.g. master vs main).
+        self._run_git(["checkout", "-B", self.base_branch])
+        has_files = any(p.name != ".git" for p in self.work_dir.iterdir())
+        if not has_files:
+            (self.work_dir / "README.md").write_text(f"# {self.repo_name}\n")
+        self._run_git(["add", "-A"])
+        self._run_git(["commit", "-m", "Initial commit (TARS bootstrap)"])
+        self._run_git(["push", "-u", "origin", self.base_branch])
+        logger.info("Bootstrapped base branch '%s' for %s", self.base_branch, self.repo)
 
     def create_branch(self, task_id: str, prefix: str = "tars") -> str:
         """Create and checkout a new branch for a task."""
