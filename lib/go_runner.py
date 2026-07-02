@@ -112,6 +112,7 @@ def _go_loop(session_id: str, project_cfg: dict, work_dir: str):
     runner = OllamaRunner()
     project = state["project"]
     test_cmd = (project_cfg.get("test") or {}).get("command", "")
+    base_branch = (project_cfg.get("git") or {}).get("base_branch", "main")
 
     try:
         for iteration in range(1, MAX_ITERATIONS + 1):
@@ -135,9 +136,12 @@ def _go_loop(session_id: str, project_cfg: dict, work_dir: str):
                     max_turns=3,
                     timeout=300,
                 )
+                if plan_result.get("is_error"):
+                    _fail(session_id, state, f"Planning model error: {plan_result.get('result','')}")
+                    return
                 raw_tasks = _parse_task_array(plan_result.get("result", ""))
                 if not raw_tasks:
-                    _fail(session_id, state, "Planning produced no tasks.")
+                    _fail(session_id, state, f"Planning returned no parseable tasks. Model output: {plan_result.get('result','')[:300]}")
                     return
 
                 for i, t in enumerate(raw_tasks):
@@ -173,6 +177,8 @@ def _go_loop(session_id: str, project_cfg: dict, work_dir: str):
                 if test_cmd and task["status"] == "done":
                     _run_tests(state, session_id, runner, work_dir, test_cmd, task, iteration)
 
+                _push(session_id, work_dir, base_branch)
+
             # ── Review ────────────────────────────────────────────────────────
             state["status"] = "reviewing"
             _save(session_id, state)
@@ -197,7 +203,11 @@ def _go_loop(session_id: str, project_cfg: dict, work_dir: str):
                 max_turns=3,
                 timeout=300,
             )
-            review = _parse_review(review_result.get("result", ""))
+            if review_result.get("is_error"):
+                logger.warning("[go:%s] review model error: %s", session_id, review_result.get("result"))
+                review = {"score": 50, "done": False, "summary": "Review failed, continuing.", "new_tasks": []}
+            else:
+                review = _parse_review(review_result.get("result", ""))
             review["iteration"] = iteration
             state["review_history"].append(review)
             _save(session_id, state)
@@ -239,6 +249,24 @@ def _go_loop(session_id: str, project_cfg: dict, work_dir: str):
     except Exception as e:
         logger.exception("[go:%s] fatal error: %s", session_id, e)
         _fail(session_id, state, str(e))
+
+
+def _push(session_id: str, work_dir: str, base_branch: str) -> None:
+    """Push whatever's been committed straight to the base branch so progress
+    is visible on GitHub as the loop runs, not just at the end."""
+    try:
+        result = subprocess.run(
+            ["git", "push", "origin", base_branch],
+            cwd=work_dir, capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode != 0:
+            logger.warning("[go:%s] push failed: %s", session_id, result.stderr.strip()[:300])
+        else:
+            logger.info("[go:%s] pushed to origin/%s", session_id, base_branch)
+    except subprocess.TimeoutExpired:
+        logger.warning("[go:%s] push timed out", session_id)
+    except Exception as e:
+        logger.warning("[go:%s] push error: %s", session_id, e)
 
 
 def _run_tests(state, session_id, runner, work_dir, test_cmd, completed_task, iteration):
