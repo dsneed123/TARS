@@ -43,7 +43,11 @@ ROLE_BY_PROMPT = {
     "implement_task.md": "code",
     "fix_error.md": "fix",
     "review_code.md": "review",
+    "review_quality.md": "review",
     "discover_improvements.md": "plan",
+    "plan_task.md": "plan",
+    "go_plan.md": "plan",
+    "go_review.md": "review",
 }
 
 # Per-role default model + execution mode. Models are overridable via env.
@@ -63,6 +67,17 @@ MAX_CMD_OUTPUT = int(os.environ.get("OLLAMA_MAX_CMD_OUTPUT", "12000"))
 def resolve_model_for_role(role: str) -> str:
     env_key, default = ROLE_MODEL_ENV.get(role, ROLE_MODEL_ENV["chat"])
     return os.environ.get(env_key, default)
+
+
+def managed_models() -> set[str]:
+    """All Ollama models TARS manages (one per role). Auto-swap only ever
+    unloads models in this set — never a model the user loaded for themselves."""
+    return {resolve_model_for_role(role) for role in ROLE_MODEL_ENV}
+
+
+# Spin the right model up and the others down before each run. Disable with
+# TARS_OLLAMA_AUTO_SWAP=0 (e.g. on a big box where everything fits in VRAM).
+AUTO_SWAP = os.environ.get("TARS_OLLAMA_AUTO_SWAP", "1").lower() not in ("0", "false", "no")
 
 
 def is_reasoning_model(model: str) -> bool:
@@ -188,6 +203,10 @@ class OllamaRunner:
         turns = max_turns or self.max_turns
         start = time.time()
 
+        # Spin the right model up and the others down so a 32B coder and a 70B
+        # reasoner don't sit resident together and exhaust VRAM.
+        self._swap_to(resolved_model)
+
         # Persistent project context: re-load the saved digest so small-context
         # local models "understand" the repo without re-reading everything.
         ctx = self._load_context(cwd)
@@ -271,6 +290,38 @@ class OllamaRunner:
             return self.model
         return resolve_model_for_role(role)
 
+    def _swap_to(self, model: str) -> None:
+        """Ensure `model` is loaded and unload the other TARS-managed models to
+        free VRAM. Best-effort: model management must never break a task."""
+        if not AUTO_SWAP:
+            return
+        try:
+            loaded = set(self.client.loaded_models())
+        except OllamaError as e:
+            logger.debug("auto-swap: could not list loaded models: %s", e)
+            return
+
+        # Match by base name too — /api/ps may report a fully-qualified tag.
+        def same(a: str, b: str) -> bool:
+            return a == b or a.split(":")[0] == b.split(":")[0]
+
+        for other in managed_models():
+            if same(other, model):
+                continue
+            if any(same(lm, other) for lm in loaded):
+                try:
+                    logger.info("auto-swap: unloading %s", other)
+                    self.client.unload_model(other)
+                except OllamaError as e:
+                    logger.debug("auto-swap: unload %s failed: %s", other, e)
+
+        if not any(same(lm, model) for lm in loaded):
+            try:
+                logger.info("auto-swap: loading %s", model)
+                self.client.load_model(model)
+            except OllamaError as e:
+                logger.debug("auto-swap: load %s failed: %s", model, e)
+
     def _result(self, text, tokens_in, tokens_out, start, is_error=False) -> dict:
         return {
             "result": text,
@@ -311,6 +362,12 @@ class OllamaRunner:
             ).stdout
         except subprocess.TimeoutExpired:
             listing = ""
+        # Skip the (slow) digest for a freshly-bootstrapped/near-empty repo —
+        # there's nothing to summarize and it would just block the task.
+        tracked = [f for f in listing.splitlines() if f.strip() and f.strip() != "README.md"]
+        if not tracked:
+            logger.info("Skipping context digest: repo has no code yet")
+            return ""
         readme = ""
         for cand in ("README.md", "README.rst", "readme.md"):
             rp = base / cand
@@ -325,7 +382,9 @@ class OllamaRunner:
             "how to build/test. Keep it under 400 lines. Output only the Markdown.\n\n"
             f"FILES:\n{listing}\n\nREADME:\n{readme}"
         )
-        res = self._run_text(prompt, resolve_model_for_role("plan"), cwd, time.time(), None)
+        plan_model = resolve_model_for_role("plan")
+        self._swap_to(plan_model)  # don't load the digest model alongside the coder
+        res = self._run_text(prompt, plan_model, cwd, time.time(), None)
         digest = res.get("result", "") or ""
         if digest:
             out = base / self.CONTEXT_REL
@@ -431,22 +490,30 @@ class OllamaRunner:
 
     def _parse_text_tool_calls(self, content: str) -> list[dict]:
         """Recover tool calls a model emitted as plain text instead of via the
-        structured tool_calls field. Handles <tool_call> tags, ```json fences,
-        and a bare top-level JSON object."""
+        structured tool_calls field. Models emit these in all sorts of shapes —
+        <tool_call> tags, ```json fences, one bare JSON object, or (commonly,
+        e.g. qwen2.5-coder) several bare JSON objects back-to-back with no
+        wrapper at all. Rather than special-case each wrapper, scan for
+        balanced top-level `{...}` objects anywhere in the text: this handles
+        every wrapper (the tag/fence text around a `{` is just skipped as
+        non-JSON) AND multiple back-to-back calls, and — unlike a lazy regex
+        (`\\{.*?\\}`) — doesn't truncate at the first `}` a write_file call's
+        own `content` argument happens to contain (e.g. code with a dict
+        literal)."""
         content = strip_think(content or "").strip()
         if not content:
             return []
-        candidates: list[str] = []
-        candidates += re.findall(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", content, re.DOTALL)
-        candidates += re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
-        if not candidates and content.startswith("{") and content.endswith("}"):
-            candidates.append(content)
-
+        decoder = json.JSONDecoder()
         calls = []
-        for c in candidates:
+        i, n = 0, len(content)
+        while i < n:
+            if content[i] != "{":
+                i += 1
+                continue
             try:
-                obj = json.loads(c)
+                obj, end = decoder.raw_decode(content, i)
             except json.JSONDecodeError:
+                i += 1
                 continue
             if isinstance(obj, dict) and "name" in obj:
                 args = obj.get("arguments", obj.get("parameters", {}))
@@ -456,6 +523,7 @@ class OllamaRunner:
                     except json.JSONDecodeError:
                         args = {}
                 calls.append({"function": {"name": obj["name"], "arguments": args}})
+            i = end
         return calls
 
     def _exec_tool(self, name: str, args: dict, cwd: Optional[str]):
