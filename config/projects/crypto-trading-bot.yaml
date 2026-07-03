@@ -1,0 +1,29 @@
+repo: dsneed123/crypto-trading-bot
+description: Autonomous cryptocurrency trading bot with GUI dashboard, no external
+  API keys required
+type: generic
+enabled: true
+git:
+  strategy: branch-pr
+  base_branch: main
+  pr_labels:
+  - tars-auto
+  auto_merge: false
+  author_name: dsneed123
+  author_email: 101902819+dsneed123@users.noreply.github.com
+build:
+  type: generic
+  command: null
+test:
+  command: null
+issues:
+  enabled: false
+  labels:
+  - tars
+auto_discover:
+  enabled: false
+  interval: 86400
+  focus_areas: []
+claude:
+  model: sonnet
+  max_turns: 20

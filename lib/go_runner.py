@@ -9,9 +9,11 @@ Flow per session:
 """
 from __future__ import annotations
 
+import difflib
 import json
 import logging
 import os
+import shutil
 import subprocess
 import threading
 import time
@@ -25,6 +27,13 @@ TARS_HOME = Path(os.environ.get("TARS_HOME", Path(__file__).parent.parent))
 STATE_DIR = TARS_HOME / "state" / "go-sessions"
 MAX_ITERATIONS = int(os.environ.get("TARS_GO_MAX_ITERATIONS", "5"))
 DONE_SCORE = int(os.environ.get("TARS_GO_DONE_SCORE", "90"))
+# A task whose title is this similar (or more) to an already done/failed task
+# is treated as a repeat attempt, not a new task (see _title_attempt_count).
+STUCK_TITLE_SIMILARITY = float(os.environ.get("TARS_GO_STUCK_SIMILARITY", "0.6"))
+# How many prior attempts at a similar-titled task before the NEXT one is
+# refused and (if it's the review's only proposal) the session stops instead
+# of cycling on the same unresolved issue indefinitely.
+STUCK_ATTEMPT_LIMIT = int(os.environ.get("TARS_GO_STUCK_ATTEMPTS", "2"))
 
 
 # ── Session state helpers ────────────────────────────────────────────────────
@@ -172,10 +181,28 @@ def _go_loop(session_id: str, project_cfg: dict, work_dir: str):
                 task["summary"] = (result.get("result") or "")[:600]
                 task["status"] = "failed" if result.get("is_error") else "done"
                 task["finished_at"] = _now()
+
+                # A task is never trusted as "done" just because the model
+                # didn't error — that only proves it didn't crash, not that
+                # what it wrote actually parses. Verify before accepting.
+                if task["status"] == "done":
+                    ok, detail = _syntax_check(work_dir)
+                    if not ok:
+                        task["status"] = "failed"
+                        task["summary"] = (
+                            (task["summary"] or "") + "\n\nVERIFICATION FAILED (syntax):\n" + detail
+                        )[:1500]
+                        logger.warning("[go:%s] task failed verification: %s",
+                                        session_id, task["title"][:60])
+                        _inject_fix_task(
+                            state, queued, iteration, task,
+                            title=f"Fix syntax errors after: {task['title'][:50]}",
+                            description=f"The following files fail to parse:\n\n{detail}\n\nFix all syntax errors.",
+                        )
                 _save(session_id, state)
 
                 if test_cmd and task["status"] == "done":
-                    _run_tests(state, session_id, runner, work_dir, test_cmd, task, iteration)
+                    _run_tests(state, queued, session_id, runner, work_dir, test_cmd, task, iteration)
 
                 _push(session_id, work_dir, base_branch)
 
@@ -190,6 +217,27 @@ def _go_loop(session_id: str, project_cfg: dict, work_dir: str):
                 for t in state["tasks"] if t["status"] == "done"
             ) or "(none)"
 
+            # Ground truth for the reviewer: actually run the checks rather
+            # than trust the tasks' own self-reported summaries — this is
+            # what catches "claims it unified the GUI, repo still has two."
+            verify_ok, verify_detail = _syntax_check(work_dir)
+            verification_report = "PASS — all files parse cleanly." if verify_ok else (
+                "FAIL:\n" + verify_detail
+            )
+            if test_cmd:
+                try:
+                    test_result = subprocess.run(
+                        test_cmd, shell=True, cwd=work_dir,
+                        capture_output=True, text=True, timeout=120,
+                    )
+                    verification_report += (
+                        f"\n\nTest command (`{test_cmd}`): "
+                        + ("PASS" if test_result.returncode == 0 else "FAIL")
+                        + "\n" + (test_result.stdout + test_result.stderr)[:1500]
+                    )
+                except subprocess.TimeoutExpired:
+                    verification_report += f"\n\nTest command (`{test_cmd}`): TIMED OUT"
+
             review_result = runner.run_with_prompt_file(
                 "go_review.md",
                 variables={
@@ -198,6 +246,7 @@ def _go_loop(session_id: str, project_cfg: dict, work_dir: str):
                     "COMPLETED_TASKS": done_summaries,
                     "REPO_SNAPSHOT": snapshot or "(empty)",
                     "ITERATION": str(iteration),
+                    "VERIFICATION": verification_report,
                 },
                 cwd=work_dir,
                 max_turns=3,
@@ -232,10 +281,39 @@ def _go_loop(session_id: str, project_cfg: dict, work_dir: str):
                 _save(session_id, state)
                 return
 
+            # Refuse to re-queue a task the loop has already attempted (done
+            # or failed) STUCK_ATTEMPT_LIMIT+ times under a similar title —
+            # that's not progress, it's the same fix failing to stick. If
+            # EVERY proposed next task is a repeat, the loop isn't
+            # converging: stop for human review instead of burning the rest
+            # of the iteration budget circling the same unresolved issue.
             next_iter = iteration + 1
+            fresh, stuck = [], []
             for i, nt in enumerate(new_tasks_raw):
                 if isinstance(nt, str):
                     nt = {"title": nt, "description": ""}
+                if _title_attempt_count(state, nt.get("title", "")) >= STUCK_ATTEMPT_LIMIT:
+                    stuck.append(nt.get("title", "(untitled)"))
+                else:
+                    fresh.append(nt)
+
+            if stuck and not fresh:
+                state["status"] = "stuck"
+                state["final_score"] = score
+                state["finished_at"] = _now()
+                state["error"] = (
+                    "Stopped: repeated attempts to fix the same issue(s) without it "
+                    "sticking — " + "; ".join(stuck[:5]) + ". Needs human review."
+                )
+                _save(session_id, state)
+                logger.warning("[go:%s] stuck loop detected, stopping: %s", session_id, stuck)
+                return
+
+            if stuck:
+                logger.info("[go:%s] skipping %d repeat task(s), already attempted %dx+: %s",
+                            session_id, len(stuck), STUCK_ATTEMPT_LIMIT, stuck)
+
+            for i, nt in enumerate(fresh):
                 state["tasks"].append(_make_task(session_id, next_iter, i, nt))
             _save(session_id, state)
 
@@ -269,7 +347,7 @@ def _push(session_id: str, work_dir: str, base_branch: str) -> None:
         logger.warning("[go:%s] push error: %s", session_id, e)
 
 
-def _run_tests(state, session_id, runner, work_dir, test_cmd, completed_task, iteration):
+def _run_tests(state, queued, session_id, runner, work_dir, test_cmd, completed_task, iteration):
     """Run test suite; if it fails, inject a fix task into the current iteration."""
     try:
         result = subprocess.run(
@@ -280,27 +358,109 @@ def _run_tests(state, session_id, runner, work_dir, test_cmd, completed_task, it
             output = (result.stdout + result.stderr)[:3000]
             logger.info("[go:%s] tests failed after '%s', injecting fix task",
                         session_id, completed_task["title"][:40])
-            fix_task = {
-                "id": f"{session_id}-fix-{completed_task['id']}",
-                "title": f"Fix failing tests after: {completed_task['title'][:50]}",
-                "description": f"The test suite failed:\n\n{output}\n\nFix all failures.",
-                "status": "queued",
-                "started_at": None,
-                "finished_at": None,
-                "summary": None,
-                "iteration": iteration,
-            }
-            # Insert immediately after the current task
-            idx = next((i for i, t in enumerate(state["tasks"])
-                        if t["id"] == completed_task["id"]), None)
-            if idx is not None:
-                state["tasks"].insert(idx + 1, fix_task)
-            else:
-                state["tasks"].append(fix_task)
+            _inject_fix_task(
+                state, queued, iteration, completed_task,
+                title=f"Fix failing tests after: {completed_task['title'][:50]}",
+                description=f"The test suite failed:\n\n{output}\n\nFix all failures.",
+            )
     except subprocess.TimeoutExpired:
         logger.warning("[go:%s] test suite timed out", session_id)
     except Exception as e:
         logger.warning("[go:%s] test run error: %s", session_id, e)
+
+
+def _inject_fix_task(state: dict, queued: list, iteration: int, after_task: dict,
+                      title: str, description: str) -> None:
+    """Queue an immediate fix task after `after_task`. Appended to BOTH
+    state["tasks"] (persistence) and `queued` (the list the current
+    iteration's execution loop is actively iterating over) — appending only
+    to state["tasks"] silently orphans the fix task forever, since it keeps
+    the CURRENT iteration number but the execution loop only re-scans for
+    the NEXT iteration's tasks. That was a real bug: fix tasks were created
+    but never ran."""
+    fix_task = {
+        "id": f"{after_task['id']}-fix-{uuid.uuid4().hex[:6]}",
+        "title": title,
+        "description": description,
+        "status": "queued",
+        "started_at": None,
+        "finished_at": None,
+        "summary": None,
+        "iteration": iteration,
+    }
+    idx = next((i for i, t in enumerate(state["tasks"]) if t["id"] == after_task["id"]), None)
+    if idx is not None:
+        state["tasks"].insert(idx + 1, fix_task)
+    else:
+        state["tasks"].append(fix_task)
+    queued.append(fix_task)
+
+
+def _syntax_check(work_dir: str) -> tuple[bool, str]:
+    """Cheap, language-aware syntax check across the whole repo — the baseline
+    "did this actually parse" gate. Runs after every task regardless of
+    whether the project configured a test command, so a task that leaves
+    unparseable code is never trusted as "done" silently."""
+    problems = []
+    try:
+        py_files = subprocess.run(
+            ["git", "ls-files", "*.py"], cwd=work_dir,
+            capture_output=True, text=True, timeout=30,
+        ).stdout.split()
+    except Exception:
+        py_files = []
+    if py_files:
+        try:
+            result = subprocess.run(
+                ["python3", "-m", "py_compile", *py_files],
+                cwd=work_dir, capture_output=True, text=True, timeout=60,
+            )
+            if result.returncode != 0:
+                problems.append(f"Python syntax errors:\n{result.stderr.strip()[:1500]}")
+        except subprocess.TimeoutExpired:
+            problems.append("Python syntax check timed out")
+
+    try:
+        js_files = subprocess.run(
+            ["git", "ls-files", "*.js"], cwd=work_dir,
+            capture_output=True, text=True, timeout=30,
+        ).stdout.split()
+    except Exception:
+        js_files = []
+    if js_files:
+        if shutil.which("node"):
+            for f in js_files:
+                try:
+                    result = subprocess.run(
+                        ["node", "--check", f],
+                        cwd=work_dir, capture_output=True, text=True, timeout=30,
+                    )
+                    if result.returncode != 0:
+                        problems.append(f"JS syntax error in {f}:\n{result.stderr.strip()[:500]}")
+                except subprocess.TimeoutExpired:
+                    problems.append(f"JS syntax check timed out: {f}")
+        else:
+            logger.debug("node not available — skipping JS syntax check")
+
+    return (not problems), "\n\n".join(problems)
+
+
+def _similar_title(a: str, b: str) -> bool:
+    a, b = a.lower().strip(), b.lower().strip()
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    return difflib.SequenceMatcher(None, a, b).ratio() >= STUCK_TITLE_SIMILARITY
+
+
+def _title_attempt_count(state: dict, title: str) -> int:
+    """How many times a task with a similar title has already been attempted
+    (done or failed) across all iterations of this session."""
+    return sum(
+        1 for t in state["tasks"]
+        if t["status"] in ("done", "failed") and _similar_title(t["title"], title)
+    )
 
 
 def _make_task(session_id, iteration, index, raw) -> dict:

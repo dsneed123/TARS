@@ -12,14 +12,25 @@ Completed tasks this session:
 Current repository state:
 {{REPO_SNAPSHOT}}
 
+Automated verification (ground truth — this actually ran the code; it is not
+self-reported by the tasks above, so trust it over any task's own summary):
+{{VERIFICATION}}
+
 ---
 
 Evaluate whether the current codebase fully achieves the goal. Consider:
 1. Feature completeness — are all requested features implemented?
 2. Correctness — does the code logically do what was asked?
 3. Quality — is it clean, testable, and maintainable?
-4. Integration — do the pieces work together as a system?
+4. Integration — do the pieces work together as a system? Watch for parallel/
+   duplicate implementations (e.g. two different entry points or two GUI
+   frameworks both partially wired up) — that is NOT integration, it's
+   unfinished consolidation, and a commit message claiming something was
+   "unified" or "removed" is not proof it actually happened. Check the repo
+   snapshot yourself.
 5. Testing — are tests present and passing?
+6. If the automated verification below reports any failure, the score MUST
+   reflect that — do not score 70+ while a verification failure is present.
 
 Score 0-100:
 - 90-100: Goal fully achieved, production-ready
