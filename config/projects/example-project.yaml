@@ -10,6 +10,13 @@ git:
   pr_labels: ["tars-auto"]
   auto_merge: false             # true = merge straight to base_branch, no PR
                                 # (overrides strategy -> direct-main)
+  # Commit identity for autonomous commits. Default (unset) = "TARS Bot"
+  # <tars@usetars.dev>, so TARS-authored work stays visibly separate from
+  # human commits. Set both to attribute commits to a real GitHub account
+  # instead — the email must be verified on that account for GitHub to link
+  # the avatar/profile to the commit.
+  author_name: null             # e.g. "Jane Doe"
+  author_email: null            # e.g. "jane@example.com"
 
 build:
   type: "generic"               # generic | xcode

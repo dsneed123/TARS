@@ -112,6 +112,8 @@ class GitManager:
         pr_labels: Optional[list[str]] = None,
         git_cmd: str = "",
         gh_cmd: str = "",
+        author_name: str = "",
+        author_email: str = "",
     ):
         self.repo = repo  # e.g. "username/repo-name"
         self.repo_name = repo.split("/")[-1]
@@ -121,6 +123,14 @@ class GitManager:
         self.git_cmd = git_cmd or os.environ.get("GIT_CMD", "git")
         self.gh_cmd = gh_cmd or os.environ.get("GH_CMD", "gh")
         self.work_dir = REPOS_DIR / self.repo_name
+        # Commit identity for autonomous commits. Defaults to a bot identity so
+        # TARS-authored work stays visibly separate from human commits; a
+        # project's `git.author_name`/`git.author_email` config can override
+        # this to attribute commits to a real GitHub account instead (the
+        # email must be a verified email on that account for GitHub to link
+        # the avatar/profile).
+        self.author_name = author_name or "TARS Bot"
+        self.author_email = author_email or "tars@usetars.dev"
 
     def _run_git(self, args: list[str], cwd: Optional[Path] = None) -> str:
         """Run a git command, return stdout."""
@@ -167,6 +177,8 @@ class GitManager:
                 check=True, capture_output=True, text=True, timeout=300,
             )
 
+        self._ensure_identity()
+
         # A freshly auto-created repo has no commits and no base branch yet, so
         # `git checkout <base>` would fail ("pathspec 'main' did not match...").
         # Seed an initial commit on the base branch so all later git ops work.
@@ -184,15 +196,12 @@ class GitManager:
         return bool(out.strip())
 
     def _ensure_identity(self) -> None:
-        """Set a repo-local commit identity if none is configured, so the
-        bootstrap commit never fails on a fresh box."""
-        try:
-            email = self._run_git(["config", "user.email"])
-        except GitError:
-            email = ""
-        if not email:
-            self._run_git(["config", "user.email", "tars@usetars.dev"])
-            self._run_git(["config", "user.name", "TARS Bot"])
+        """Set the repo-local commit identity to the configured author (bot
+        default, or a project's git.author_name/author_email override).
+        Applied unconditionally — not just on first clone — so a config
+        change takes effect on the next run against an existing clone too."""
+        self._run_git(["config", "user.name", self.author_name])
+        self._run_git(["config", "user.email", self.author_email])
 
     def _bootstrap_base_branch(self) -> None:
         """Initialize an empty repo with a first commit on the base branch."""

@@ -574,7 +574,15 @@ def go_start_route(name):
     # Ensure the repo is cloned so the runner has a working directory
     try:
         from lib.git_manager import GitManager
-        gm = GitManager(project_cfg.get("repo", ""))
+        git_cfg = project_cfg.get("git", {}) or {}
+        gm = GitManager(
+            project_cfg.get("repo", ""),
+            base_branch=git_cfg.get("base_branch", "main"),
+            strategy=git_cfg.get("strategy", "branch-pr"),
+            pr_labels=git_cfg.get("pr_labels"),
+            author_name=git_cfg.get("author_name", ""),
+            author_email=git_cfg.get("author_email", ""),
+        )
         work_dir = str(gm.ensure_cloned())
     except Exception as e:
         return jsonify({"error": f"Could not clone repo: {e}"}), 502
