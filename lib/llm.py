@@ -126,7 +126,8 @@ class LLM:
             raise OllamaError(f"Unknown LLM role: {role} (configure it in config/graph.yaml)")
         return cfg
 
-    def _chat(self, role: str, messages: list, tools=None, num_predict=None) -> dict:
+    def _chat(self, role: str, messages: list, tools=None, num_predict=None,
+              timeout: Optional[int] = None) -> dict:
         cfg = self._role(role)
         return self.client.chat(
             cfg["model"], messages,
@@ -135,15 +136,16 @@ class LLM:
             temperature=float(cfg.get("temperature", 0.2)),
             keep_alive=str(cfg.get("keep_alive", "60m")),
             num_predict=num_predict if num_predict is not None else cfg.get("num_predict"),
+            timeout=timeout,
         )
 
     # ------------------------------------------------------------------ text
     def text(self, role: str, prompt: str, system: Optional[str] = None,
-             num_predict: Optional[int] = None) -> dict:
+             num_predict: Optional[int] = None, timeout: Optional[int] = None) -> dict:
         messages = ([{"role": "system", "content": system}] if system else [])
         messages.append({"role": "user", "content": prompt})
         start = time.time()
-        resp = self._chat(role, messages, num_predict=num_predict)
+        resp = self._chat(role, messages, num_predict=num_predict, timeout=timeout)
         return {
             "result": strip_think((resp.get("message") or {}).get("content", "")),
             "tokens_in": resp.get("prompt_eval_count", 0),
@@ -169,10 +171,14 @@ class LLM:
         stop_reason = "finished"
 
         for _turn in range(max_turns):
-            if time.time() - start > timeout:
+            remaining = timeout - (time.time() - start)
+            if remaining <= 0:
                 stop_reason = "timeout"
                 break
-            resp = self._chat(role, messages, tools=TOOLS)
+            # Each call is also bounded by the node's remaining wall clock, so
+            # one hung generation can't overshoot the node budget by 20 min.
+            resp = self._chat(role, messages, tools=TOOLS,
+                              timeout=int(max(30, min(remaining + 30, 900))))
             calls += 1
             tokens_in += resp.get("prompt_eval_count", 0)
             tokens_out += resp.get("eval_count", 0)

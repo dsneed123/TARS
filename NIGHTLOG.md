@@ -178,3 +178,34 @@ tracked .js → unfixable fix-loop → escalation to the 70B. Verify now parse-c
 ONLY the files the task changed, never vendored paths (go_runner's check got the same
 guard). The kill-tree trap and the 5m escalation keep_alive both behaved exactly as
 designed during the recovery, which was good to see under real fire.
+
+## Milestone 4 — Reliability hardening
+
+Already structural in the graph (verify gate, capped fix loop → escalation → loud
+Discord failure, per-task push, one Discord message per task with wall-s/calls/tokens).
+Added tonight on top:
+
+- **Per-call wall-clock bounds**: every text node now passes its node timeout down to
+  the HTTP call, and each agent-loop call is capped by the node's *remaining* budget —
+  one hung generation can no longer overshoot a node by the old 20-min client default.
+- **Escalation model decision**: default escalation is now a fresh, temperature-0
+  qwen3-coder pass on the distilled failure — NOT deepseek-r1. r1 can't drive tools
+  reliably (it's why the old pipeline had a whole parallel "edit-mode" text loop), and
+  at ~10 tok/s it costs minutes per attempt. Rationale in config/graph.yaml; point it
+  at a bigger tool-calling model when one lands.
+- **Ollama gate in tars-resource-gate.sh**: local-model tasks are guaranteed failures
+  during an Ollama outage — the daemon now waits instead of burning task retries
+  (same philosophy as the existing GitHub network gate).
+- **Issue fetch without a clone**: `gh issue list` now targets `-R <repo>` and no
+  longer requires `repos/<name>` to exist — this was spamming "Failed to fetch issues
+  for tars-survey" into every scheduler tick.
+- **Tests**: `tests/test_graph_executor.py` — 9 new tests covering changed-file
+  scoping, vendored exclusion, skip logic, the verify fix-loop exhausting
+  coder→coder→escalation and failing, empty-diff failure, run-state persistence,
+  tool-call/JSON parsers, and DAG deadlock detection. Suite: 21 passed.
+
+**Daemon note:** the daemon has been DOWN since ~06:09 this morning — no OOM, no
+reboot, no shutdown trap in the log, and the systemd unit is disabled; it was run
+via nohup and evidently killed by hand right before the overnight mission was
+written. I left it stopped on purpose. When you start it (`./tars.sh start`), the
+3 pending crypto-trading-bot improvement tasks will run through the new graph.

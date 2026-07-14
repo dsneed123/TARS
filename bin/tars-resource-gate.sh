@@ -21,6 +21,16 @@ if awk -v l="$LOAD1" -v m="$MAX_LOAD" 'BEGIN{exit !(l+0 > m+0)}'; then
     exit 1
 fi
 
+# --- Ollama gate ---------------------------------------------------------------
+# Local-model tasks are guaranteed to fail without Ollama — don't burn a task
+# retry on an outage, just wait for it to come back.
+if [ "${TARS_LLM_PROVIDER:-ollama}" = "ollama" ]; then
+    if ! curl -s -m 3 "${OLLAMA_HOST:-http://localhost:11434}/api/tags" >/dev/null 2>&1; then
+        echo "ollama unreachable at ${OLLAMA_HOST:-http://localhost:11434}"
+        exit 1
+    fi
+fi
+
 # --- GPU memory gate (optional) ----------------------------------------------
 # Only enforced if nvidia-smi exists AND TARS_MIN_FREE_VRAM_MB is set (>0).
 MIN_FREE_VRAM="${TARS_MIN_FREE_VRAM_MB:-0}"

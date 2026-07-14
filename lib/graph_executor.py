@@ -195,7 +195,7 @@ class GraphRun:
             TASK_TITLE=self.task.get("title", ""),
             TASK_DESCRIPTION=self.task.get("description", ""),
             REPO_MAP=rmap,
-        ))
+        ), timeout=int(cfg.get("timeout", 120)))
         verdict = extract_json(res.get("result", "")) or {}
         intake = {
             "complexity": verdict.get("complexity", "standard"),
@@ -213,7 +213,7 @@ class GraphRun:
             TASK_TITLE=self.task.get("title", ""),
             TASK_DESCRIPTION=self.task.get("description", ""),
             REPO_MAP=self.artifacts.get("repo_map", ""),
-        ))
+        ), timeout=int(cfg.get("timeout", 300)))
         plan = res.get("result", "").strip()
         self.artifacts["plan"] = plan or "(no plan — implement the task directly)"
         self._record(name, started, res, summary=f"plan: {len(plan)} chars")
@@ -354,7 +354,7 @@ class GraphRun:
             PLAN=(self.artifacts.get("plan") or "(planning was skipped)")[:3000],
             VERIFY_REPORT=self.artifacts.get("verify", {}).get("summary", "(none)"),
             DIFF=self.artifacts.get("diff", {}).get("text", "(no diff captured)"),
-        ))
+        ), timeout=int(cfg.get("timeout", 300)))
         verdict = extract_json(res.get("result", "")) or {"approved": True}
         verdict.setdefault("approved", True)
         self.artifacts["review"] = verdict

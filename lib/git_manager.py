@@ -149,12 +149,17 @@ class GitManager:
         return result.stdout.strip()
 
     def _run_gh(self, args: list[str]) -> str:
-        """Run a gh CLI command, return stdout."""
+        """Run a gh CLI command, return stdout. Targets the repo explicitly
+        with -R and runs from the work dir only when it exists — issue/PR
+        queries must work before the repo is ever cloned."""
         cmd = [self.gh_cmd] + args
-        logger.debug("gh %s", " ".join(args))
+        if args and args[0] == "issue" and "-R" not in args:
+            cmd = [self.gh_cmd, args[0], args[1], "-R", self.repo] + args[2:]
+        cwd = str(self.work_dir) if self.work_dir.exists() else None
+        logger.debug("gh %s (cwd=%s)", " ".join(cmd[1:]), cwd)
         try:
             result = subprocess.run(
-                cmd, cwd=str(self.work_dir), capture_output=True, text=True, timeout=120
+                cmd, cwd=cwd, capture_output=True, text=True, timeout=120
             )
         except subprocess.TimeoutExpired:
             raise GitError(f"gh command timed out: {' '.join(args)}")

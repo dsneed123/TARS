@@ -23,10 +23,16 @@ models:
     num_ctx: 32768
     num_predict: 700
     keep_alive: 60m
-  escalation:                # last-resort deeper model when the coder is stuck
-    model: deepseek-r1:70b
-    num_ctx: 16384
-    keep_alive: 5m
+  escalation:                # last-resort retry when the coder is stuck.
+    # NOT deepseek-r1: it can't drive tools reliably, so as an agent it
+    # flounders (and at ~10 tok/s it costs minutes per attempt). A fresh
+    # deterministic pass by the coder with only the distilled failure is the
+    # strongest tool-capable fallback on this box. Point this at a bigger
+    # tool-calling model when one lands.
+    model: qwen3-coder:30b
+    num_ctx: 65536
+    temperature: 0.0
+    keep_alive: 60m
 
 nodes:
   intake:
