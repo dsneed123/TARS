@@ -196,7 +196,10 @@ class GitManager:
             self._bootstrap_base_branch()
         else:
             self._run_git(["checkout", self.base_branch])
-            self._run_git(["pull", "origin", self.base_branch])
+            # Hard-sync to origin, never `pull`: these clones are disposable
+            # mirrors, and a diverged local base (e.g. from a killed task that
+            # committed to it) makes `pull` abort and brick every later task.
+            self._run_git(["reset", "--hard", f"origin/{self.base_branch}"])
 
         return self.work_dir
 
@@ -236,7 +239,8 @@ class GitManager:
         branch = f"{prefix}/{safe_id}"
 
         self._run_git(["checkout", self.base_branch])
-        self._run_git(["pull", "origin", self.base_branch])
+        self._run_git(["fetch", "origin", self.base_branch])
+        self._run_git(["reset", "--hard", f"origin/{self.base_branch}"])
 
         # Delete branch if it already exists locally
         try:
