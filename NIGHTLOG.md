@@ -21,11 +21,16 @@ The CLI is now one conversational REPL (`./tars`, just type — no subcommands, 
 flags) with a local router model, streaming chat, and live per-node progress
 (`watch <id>` renders `intake ✓ plan ∅ implement ✓11s …` as the graph runs).
 
-**One thing needs you (1 minute):** `sudo` an Ollama upgrade —
-`curl -fsSL https://ollama.com/install.sh | sh` — so structured tool calls come from
-Ollama's parser instead of my fallback (then delete `parse_text_tool_calls` in
-lib/llm.py). The daemon is stopped (as you left it); `./tars.sh start` when ready —
-3 pending crypto-bot tasks will run through the new graph.
+**~~One thing needs you~~ DONE (morning follow-up):** Ollama upgraded to 0.32.0;
+after a re-pull the model manifest carries `RENDERER/PARSER qwen3-coder` and
+structured `tool_calls` are parsed natively — both text-format fallback parsers are
+deleted (lib/llm.py and ollama_runner.py, plus the legacy bare-JSON one). While
+re-verifying, one E2E run exposed a real robustness gap the parser had been masking:
+a first-turn reply with zero tool calls was accepted as "finished" (verify failed it
+loudly on the empty diff, as designed). The agent loop now nudges exactly once on a
+zero-tool, zero-change "done" before accepting it. Re-verified E2E: **13.7 s** to
+merged PR #7 with native parsing only. The daemon is stopped (as you left it);
+`./tars.sh start` when ready — 3 pending crypto-bot tasks will run through the new graph.
 
 **Top 3 next steps:**
 1. Upgrade Ollama (above), delete both text-tool-call fallback parsers, and re-verify
