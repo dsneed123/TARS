@@ -73,6 +73,26 @@ def strip_think(text: str) -> str:
     return _THINK_RE.sub("", text or "").strip()
 
 
+# Ollama 0.30.x doesn't parse qwen3-coder's XML-ish tool-call format when the
+# model omits the opening <tool_call> tag, so calls arrive as plain text.
+# This fallback parser recovers them. DELETE once Ollama is upgraded (>=0.31
+# parses these natively — upgrade needs sudo, see NIGHTLOG 2026-07-14).
+_FUNC_RE = re.compile(r"<function=(\w+)>(.*?)(?:</function>|\Z)", re.DOTALL)
+_PARAM_RE = re.compile(r"<parameter=(\w+)>\n?(.*?)\n?</parameter>", re.DOTALL)
+
+
+def parse_text_tool_calls(content: str) -> list[dict]:
+    """Recover qwen3-coder tool calls emitted as text instead of tool_calls."""
+    content = strip_think(content or "")
+    if "<function=" not in content:
+        return []
+    calls = []
+    for m in _FUNC_RE.finditer(content):
+        args = {k: v for k, v in _PARAM_RE.findall(m.group(2))}
+        calls.append({"function": {"name": m.group(1), "arguments": args}})
+    return calls
+
+
 def extract_json(text: str) -> Optional[dict]:
     """Pull the first JSON object out of model text (fenced or bare)."""
     text = strip_think(text)
@@ -160,6 +180,8 @@ class LLM:
             messages.append(msg)
 
             tool_calls = msg.get("tool_calls") or []
+            if not tool_calls:
+                tool_calls = parse_text_tool_calls(msg.get("content", ""))
             if not tool_calls:
                 final_text = strip_think(msg.get("content", "")) or final_text
                 break

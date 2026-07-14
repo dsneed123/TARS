@@ -18,7 +18,9 @@ from pathlib import Path
 logger = logging.getLogger("tars.repo_map")
 
 GIT_CMD = os.environ.get("GIT_CMD", "git")
-CACHE_REL = ".tars/repo_map.json"
+# Cache lives in TARS state, NOT inside the target repo — a cache written into
+# the work tree gets swept up by the agent's commits (it happened: PR #3).
+CACHE_DIR = Path(os.environ.get("TARS_HOME", Path(__file__).parent.parent)) / "state" / "repo_maps"
 
 _SKIP_EXT = {
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip", ".gz",
@@ -103,7 +105,7 @@ def build_map(work_dir: str, max_files: int = 400, symbol_files: int = 120) -> d
 
 def get_map(work_dir: str) -> dict:
     """Return the repo map, using the cache when HEAD hasn't moved."""
-    cache = Path(work_dir) / CACHE_REL
+    cache = CACHE_DIR / f"{Path(work_dir).name}.json"
     head = _head(work_dir)
     if cache.exists():
         try:
