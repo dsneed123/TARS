@@ -37,15 +37,11 @@ PROMPTS_DIR = TARS_HOME / "prompts"
 # role default model instead.
 _CLAUDE_ALIASES = {"sonnet", "opus", "haiku", "claude"}
 
-# Map prompt template -> logical role. The worker always invokes the LLM via
+# Map prompt template -> logical role. Legacy call sites invoke the LLM via
 # run_with_prompt_file(), so the filename reliably tells us the role.
 ROLE_BY_PROMPT = {
-    "implement_task.md": "code",
-    "fix_error.md": "fix",
-    "review_code.md": "review",
-    "review_quality.md": "review",
     "discover_improvements.md": "plan",
-    "plan_task.md": "plan",
+    "self_improve.md": "plan",
     "go_plan.md": "plan",
     "go_review.md": "review",
 }
@@ -274,11 +270,6 @@ class OllamaRunner:
                 template = template.replace(f"{{{{{key}}}}}", str(val))
         kwargs.setdefault("role", ROLE_BY_PROMPT.get(prompt_file, "chat"))
         return self.run(template, **kwargs)
-
-    def self_review(self, diff: str, cwd: Optional[str] = None) -> dict:
-        return self.run_with_prompt_file(
-            "review_code.md", variables={"DIFF": diff}, cwd=cwd, max_turns=3
-        )
 
     # ------------------------------------------------------------------- helpers
     def _resolve_model(self, model: Optional[str], role: str) -> str:

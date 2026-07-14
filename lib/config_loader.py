@@ -155,13 +155,6 @@ def load_queue(project: str = "") -> list[dict]:
                 for t in raw.get("tasks", []):
                     t.setdefault("project", p.stem)
                     tasks.append(t)
-        # Fallback: also read legacy queue.yaml if it has tasks not yet migrated
-        legacy = load_yaml(CONFIG_DIR / "queue.yaml")
-        legacy_tasks = legacy.get("tasks", [])
-        existing_ids = {t.get("id") for t in tasks}
-        for t in legacy_tasks:
-            if t.get("id") not in existing_ids:
-                tasks.append(t)
     return [t for t in tasks if t.get("status", "pending") == "pending"]
 
 

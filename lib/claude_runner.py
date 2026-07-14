@@ -186,13 +186,3 @@ class ClaudeRunner:
                 template = template.replace(f"{{{{{key}}}}}", str(val))
 
         return self.run(template, **kwargs)
-
-    def self_review(self, diff: str, cwd: Optional[str] = None) -> dict:
-        """Have Claude review a diff before pushing."""
-        return self.run_with_prompt_file(
-            "review_code.md",
-            variables={"DIFF": diff},
-            cwd=cwd,
-            model="sonnet",
-            max_turns=3,
-        )

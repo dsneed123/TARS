@@ -30,8 +30,6 @@ Commands:
   logs        Tail daemon logs
   queue       Show pending tasks
   new-project Create a new project (name type [description] [--private] [--org <org>])
-  discord     Manage Discord bot (start|stop|status)
-  dashboard   Manage web dashboard (start|stop|status)
 
 EOF
 }
@@ -71,18 +69,6 @@ cmd_start() {
     echo "$daemon_pid" > "$TARS_PID_FILE"
     echo "TARS started (PID: ${daemon_pid})"
     echo "Logs: tail -f ${TARS_LOGS}/daemon.log"
-
-    # Start Discord bot if configured
-    if [ -f "${TARS_CONFIG}/discord.yaml" ] && "${TARS_PYTHON}" -c "
-import yaml
-cfg = yaml.safe_load(open('${TARS_CONFIG}/discord.yaml'))
-exit(0 if cfg.get('bot_token') else 1)
-" 2>/dev/null; then
-        "${TARS_BIN}/tars-discord.sh" start 2>/dev/null || true
-    fi
-
-    # Start dashboard
-    "${TARS_BIN}/tars-dashboard.sh" start 2>/dev/null || true
 }
 
 cmd_stop() {
@@ -121,12 +107,6 @@ cmd_stop() {
 
     # Also stop health watchdog
     pkill -f "tars-health.sh" 2>/dev/null || true
-
-    # Also stop Discord bot
-    "${TARS_BIN}/tars-discord.sh" stop 2>/dev/null || true
-
-    # Also stop dashboard
-    "${TARS_BIN}/tars-dashboard.sh" stop 2>/dev/null || true
 }
 
 cmd_restart() {
@@ -241,16 +221,6 @@ print(json.dumps(result, indent=2))
     echo "Project created! Config at: config/projects/${name}.yaml"
 }
 
-cmd_discord() {
-    local action="${1:?Usage: ./tars.sh discord start|stop|status}"
-    "${TARS_BIN}/tars-discord.sh" "$action"
-}
-
-cmd_dashboard() {
-    local action="${1:?Usage: ./tars.sh dashboard start|stop|status}"
-    "${TARS_BIN}/tars-dashboard.sh" "$action"
-}
-
 cmd_queue() {
     "${TARS_PYTHON}" -c "
 import json
@@ -283,8 +253,6 @@ case "$COMMAND" in
     logs)        cmd_logs ;;
     queue)       cmd_queue ;;
     new-project) shift; cmd_new_project "$@" ;;
-    discord)     shift; cmd_discord "$@" ;;
-    dashboard)   shift; cmd_dashboard "$@" ;;
     ""|help|-h|--help)
         usage
         ;;

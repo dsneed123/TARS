@@ -9,7 +9,7 @@ from typing import Optional
 
 import yaml
 
-from lib.config_loader import load_queue, list_projects, load_project, QUEUES_DIR, CONFIG_DIR
+from lib.config_loader import load_queue, list_projects, load_project, QUEUES_DIR
 from lib.git_manager import GitManager
 
 logger = logging.getLogger("tars.task_manager")
@@ -158,7 +158,7 @@ class TaskManager:
             self._save_state()
 
     def get_manual_tasks(self) -> list[dict]:
-        """Get tasks from the manual queue (config/queue.yaml)."""
+        """Get tasks from the per-project queues (config/queues/*.yaml)."""
         enabled = list_projects()
         enabled_names = {p["_name"] for p in enabled}
         # Map owner/repo form back to the project's short name so
@@ -176,10 +176,9 @@ class TaskManager:
                 continue
             task = {
                 "id": task_id,
-                # The task's own id inside its queue YAML file (queue.yaml or
-                # queues/<project>.yaml) — distinct from the "manual-"
-                # prefixed dedupe id above. Needed to write the status back
-                # once the task finishes (see complete_task()).
+                # The task's own id inside queues/<project>.yaml — distinct
+                # from the "manual-" prefixed dedupe id above. Needed to write
+                # the status back once the task finishes (see complete_task()).
                 "queue_id": item.get("id"),
                 "title": item.get("title", "Untitled"),
                 "description": item.get("description", ""),
@@ -371,13 +370,12 @@ class TaskManager:
         logger.info("Task completed: %s", task_id)
 
     def _update_queue_status(self, project: str, queue_id: str, status: str) -> bool:
-        """Find queue_id in the project's queue file (falling back to the
-        legacy global queue.yaml) and set its status, mirroring what the
-        controller's /api/tasks/<id>/cancel endpoint does. Returns True if a
-        matching task was found and updated."""
+        """Find queue_id in the project's queue file and set its status,
+        mirroring what the controller's /api/tasks/<id>/cancel endpoint does.
+        Returns True if a matching task was found and updated."""
         import time as _time
 
-        candidates = [QUEUES_DIR / f"{project}.yaml", CONFIG_DIR / "queue.yaml"]
+        candidates = [QUEUES_DIR / f"{project}.yaml"]
         for path in candidates:
             if not path.exists():
                 continue
