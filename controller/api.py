@@ -1526,6 +1526,57 @@ def task_run(task_id: str):
     return jsonify(doc)
 
 
+@app.route("/api/graph", methods=["GET"])
+@require_api_key
+def pipeline_graph():
+    """Everything the live graph view needs in one call: projects, queue
+    depth per project, the current task, and recent runs with per-node state."""
+    projects = []
+    if PROJECTS_DIR.exists():
+        pending_by_project: dict = {}
+        for t in _read_all_tasks():
+            if t.get("status") == "pending":
+                pending_by_project[t.get("project")] = \
+                    pending_by_project.get(t.get("project"), 0) + 1
+        for p in sorted(PROJECTS_DIR.glob("*.yaml")):
+            try:
+                with open(p) as f:
+                    cfg = yaml.safe_load(f) or {}
+            except yaml.YAMLError:
+                continue
+            if not cfg.get("enabled", True) or not _owns_project(g.identity, p.stem):
+                continue
+            projects.append({"name": p.stem,
+                             "pending": pending_by_project.get(p.stem, 0)})
+
+    runs = []
+    runs_dir = STATE_DIR / "runs"
+    if runs_dir.exists():
+        for f in sorted(runs_dir.glob("*.json"),
+                        key=lambda x: x.stat().st_mtime, reverse=True)[:12]:
+            doc = _read_json(f)
+            if not doc or not _owns_project(g.identity, doc.get("project", "")):
+                continue
+            runs.append({
+                "task_id": (doc.get("task") or {}).get("id", f.stem),
+                "title": (doc.get("task") or {}).get("title", ""),
+                "project": doc.get("project"),
+                "status": doc.get("status"),
+                "wall_s": doc.get("wall_s"),
+                "llm_calls": doc.get("llm_calls"),
+                "nodes": {k: {"status": v.get("status"),
+                              "duration_ms": v.get("duration_ms"),
+                              "llm_calls": v.get("llm_calls")}
+                          for k, v in (doc.get("nodes") or {}).items()},
+            })
+
+    return jsonify({
+        "projects": projects,
+        "current_task": _read_json(STATE_DIR / "current_task.json") or None,
+        "runs": runs,
+    })
+
+
 # ---------------------------------------------------------------------------
 # Routes — Metrics
 # ---------------------------------------------------------------------------
@@ -2683,6 +2734,190 @@ def app_home():
     """Friend-facing TARS app. Key-gated in the browser — embeds no secret."""
     from flask import Response
     return Response(APP_HTML, mimetype="text/html")
+
+
+# Obsidian-style live pipeline graph. Self-contained (hand-rolled force layout,
+# zero external deps), dark, key-gated in the browser like APP_HTML.
+GRAPH_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TARS · brain</title>
+<style>
+  html,body{margin:0;height:100%;background:#0d0e10;color:#e6e7e9;
+    font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;overflow:hidden}
+  #c{display:block;width:100vw;height:100vh}
+  #hud{position:fixed;top:10px;left:12px;color:#9aa0a8;pointer-events:none}
+  #hud b{color:#e6e7e9;font-weight:600}
+  #tip{position:fixed;display:none;background:#16181c;border:1px solid #2a2e35;
+    border-radius:8px;padding:6px 9px;color:#e6e7e9;pointer-events:none;max-width:320px}
+  #gate{position:fixed;inset:0;background:#0d0e10;display:flex;align-items:center;
+    justify-content:center;flex-direction:column;gap:10px}
+  #gate input{background:#16181c;border:1px solid #2a2e35;border-radius:8px;
+    padding:8px 10px;color:#e6e7e9;width:280px}
+  #gate .err{color:#f85149;min-height:1em}
+  .legend{position:fixed;bottom:10px;left:12px;color:#9aa0a8;pointer-events:none}
+  .legend span{margin-right:14px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><b>TARS brain</b> · <span id="hudline">connecting…</span></div>
+<div class="legend">
+  <span><i class="dot" style="background:#3fb950"></i>ok</span>
+  <span><i class="dot" style="background:#e0795a"></i>running</span>
+  <span><i class="dot" style="background:#f85149"></i>failed</span>
+  <span><i class="dot" style="background:#4d5460"></i>skipped</span>
+  <span><i class="dot" style="background:#8b93c8"></i>project</span>
+</div>
+<div id="tip"></div>
+<div id="gate" style="display:none">
+  <div>TARS brain — enter API key</div>
+  <input id="gkey" type="password" placeholder="API key"/>
+  <div class="err" id="gerr"></div>
+</div>
+<script>
+const LS='tars_key';
+const key=()=>localStorage.getItem(LS)||'';
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const tip=document.getElementById('tip');
+let W,H,DPR;
+function resize(){DPR=devicePixelRatio||1;W=innerWidth;H=innerHeight;
+  canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0)}
+addEventListener('resize',resize);resize();
+
+// ---- graph state: id -> node {x,y,vx,vy,r,label,kind,status,meta}
+const nodes=new Map(), edges=[];   // edges: [idA,idB]
+const edgeSet=new Set();
+function addNode(id,label,kind,status,r,meta){
+  let n=nodes.get(id);
+  if(!n){n={x:W/2+(Math.random()-.5)*240,y:H/2+(Math.random()-.5)*240,
+           vx:0,vy:0,id,label,kind,r,meta:meta||{}};nodes.set(id,n)}
+  n.label=label;n.kind=kind;n.status=status;n.r=r;n.meta=meta||n.meta;n.seen=true;
+  return n}
+function addEdge(a,b){const k=a+'→'+b;
+  if(!edgeSet.has(k)){edgeSet.add(k);edges.push([a,b])}}
+
+const NODE_ORDER=['intake','plan','implement','verify','review','integrate'];
+function ingest(d){
+  nodes.forEach(n=>n.seen=false);
+  edges.length=0;edgeSet.clear();
+  const hub=addNode('tars','TARS','hub','ok',16,{});
+  hub.seen=true;
+  (d.projects||[]).forEach(p=>{
+    addNode('p:'+p.name,p.name,'project',p.pending>0?'running':'idle',11,
+            {sub:p.pending+' queued'});
+    addEdge('tars','p:'+p.name)});
+  (d.runs||[]).forEach(run=>{
+    const rid='r:'+run.task_id;
+    addNode(rid,run.title||run.task_id,'task',run.status,8,
+      {sub:`${run.status} · ${(run.wall_s||0).toFixed(0)}s · ${run.llm_calls||0} calls`});
+    if(run.project&&nodes.has('p:'+run.project))addEdge('p:'+run.project,rid);
+    let prev=rid;
+    NODE_ORDER.forEach(name=>{
+      const rec=(run.nodes||{})[name];
+      const st=rec?rec.status:(run.status==='running'?'pending':'absent');
+      if(st==='absent'&&!rec)return;
+      const nid=rid+':'+name;
+      addNode(nid,name,'stage',rec?rec.status:'pending',5,
+        {sub:rec?`${((rec.duration_ms||0)/1000).toFixed(1)}s · ${rec.llm_calls||0} calls`:'pending'});
+      addEdge(prev,nid);prev=nid});
+  });
+  [...nodes.keys()].forEach(id=>{if(!nodes.get(id).seen)nodes.delete(id)});
+  document.getElementById('hudline').textContent=
+    `${(d.projects||[]).length} projects · ${(d.runs||[]).length} recent runs`+
+    (d.current_task?` · running: ${d.current_task.title||''}`:' · idle');
+}
+
+// ---- physics: repulsion + springs + weak centering
+function step(){
+  const ns=[...nodes.values()];
+  for(let i=0;i<ns.length;i++)for(let j=i+1;j<ns.length;j++){
+    const a=ns[i],b=ns[j];let dx=b.x-a.x,dy=b.y-a.y;
+    let d2=dx*dx+dy*dy;if(d2<1)d2=1;const d=Math.sqrt(d2);
+    const f=1800/(d2);dx/=d;dy/=d;
+    a.vx-=dx*f;a.vy-=dy*f;b.vx+=dx*f;b.vy+=dy*f}
+  edges.forEach(([ai,bi])=>{
+    const a=nodes.get(ai),b=nodes.get(bi);if(!a||!b)return;
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)||1;
+    const want=a.kind==='hub'||b.kind==='hub'?150:(a.kind==='stage'||b.kind==='stage'?46:96);
+    const f=(d-want)*0.012;
+    a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f});
+  ns.forEach(n=>{
+    n.vx+=(W/2-n.x)*0.0012;n.vy+=(H/2-n.y)*0.0012;
+    if(n!==drag){n.x+=n.vx;n.y+=n.vy}n.vx*=0.82;n.vy*=0.82});
+}
+
+const COLOR={ok:'#3fb950',completed:'#3fb950',failed:'#f85149',running:'#e0795a',
+  skipped:'#4d5460',pending:'#4d5460',idle:'#8b93c8'};
+function colorOf(n){
+  if(n.kind==='hub')return '#c96442';
+  if(n.kind==='project')return n.status==='running'?'#e0795a':'#8b93c8';
+  return COLOR[n.status]||'#9aa0a8'}
+let t0=performance.now();
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const pulse=(Math.sin((performance.now()-t0)/300)+1)/2;
+  ctx.strokeStyle='#2a2e35';ctx.lineWidth=1;
+  edges.forEach(([ai,bi])=>{const a=nodes.get(ai),b=nodes.get(bi);if(!a||!b)return;
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()});
+  nodes.forEach(n=>{
+    const c=colorOf(n);
+    ctx.shadowColor=c;
+    ctx.shadowBlur=(n.status==='running'||n.kind==='hub')?10+16*pulse:6;
+    ctx.fillStyle=c;
+    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fill();
+    ctx.shadowBlur=0;
+    if(n.kind!=='stage'||n.status==='running'||n.status==='failed'){
+      ctx.fillStyle='#9aa0a8';ctx.textAlign='center';
+      ctx.fillText(n.label.slice(0,26),n.x,n.y+n.r+13)}});
+}
+function loop(){step();draw();requestAnimationFrame(loop)}
+
+// ---- interaction: drag + hover
+let drag=null;
+function pick(x,y){let hit=null;
+  nodes.forEach(n=>{const dx=n.x-x,dy=n.y-y;
+    if(dx*dx+dy*dy<(n.r+6)*(n.r+6))hit=n});return hit}
+canvas.addEventListener('mousedown',e=>{drag=pick(e.clientX,e.clientY)});
+addEventListener('mouseup',()=>drag=null);
+addEventListener('mousemove',e=>{
+  if(drag){drag.x=e.clientX;drag.y=e.clientY;drag.vx=drag.vy=0}
+  const n=pick(e.clientX,e.clientY);
+  if(n){tip.style.display='block';tip.style.left=(e.clientX+14)+'px';
+    tip.style.top=(e.clientY+14)+'px';
+    tip.innerHTML=`<b>${n.label}</b><br>${n.meta.sub||n.kind}`}
+  else tip.style.display='none'});
+
+// ---- data polling + key gate
+async function fetchGraph(){
+  const r=await fetch('/api/graph',{headers:{'X-API-Key':key()}});
+  if(r.status===401||r.status===403)throw 401;
+  return r.json()}
+async function tick(){
+  try{ingest(await fetchGraph());
+    document.getElementById('gate').style.display='none'}
+  catch(e){if(e===401){document.getElementById('gate').style.display='flex';return}}
+  setTimeout(tick,2000)}
+document.getElementById('gkey').addEventListener('keydown',async e=>{
+  if(e.key!=='Enter')return;
+  localStorage.setItem(LS,e.target.value.trim());
+  try{ingest(await fetchGraph());
+    document.getElementById('gate').style.display='none';setTimeout(tick,2000)}
+  catch(_){document.getElementById('gerr').textContent='Invalid key'}});
+tick();loop();
+</script>
+</body>
+</html>"""
+
+
+@app.route("/graph", methods=["GET"])
+def graph_view():
+    """Live Obsidian-style pipeline graph. Key-gated in the browser."""
+    from flask import Response
+    return Response(GRAPH_HTML, mimetype="text/html")
 
 
 # ---------------------------------------------------------------------------

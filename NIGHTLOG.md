@@ -33,9 +33,21 @@ lib/llm.py). The daemon is stopped (as you left it); `./tars.sh start` when read
 2. Port go-sessions (website greenfield builds) onto the graph executor — it's the
    last workflow on the legacy OllamaRunner path, and it would inherit verify/skip/
    per-node state for free (then OllamaRunner shrinks to chat-only).
-3. The Obsidian-brain graph view on the controller dashboard (the stretch goal I
-   didn't reach): `state/runs/*.json` already has everything a live force-directed
-   view needs — nodes, statuses, timings — it just needs the front-end.
+3. Raise throughput: the graph, gates, and per-task state are already isolated
+   per task — the daemon's single-flock synchronous loop is now the ceiling.
+   Either loosen it to N concurrent workers on this box (VRAM allows it) or
+   start the Mac-mini worker-node distribution.
+
+**Stretch goal: SHIPPED.** The Obsidian-brain view is live at
+`http://localhost:8420/graph` (and through the tunnel): force-directed, dark,
+zero external deps (hand-rolled physics on a canvas), key-gated like the main
+app. Nodes = TARS hub → projects → recent task runs → each run's pipeline
+stages; running nodes pulse/glow; hover for timings and call counts; drag to
+play. It polls the new `GET /api/graph` every 2s. Verified: JS syntax-checked,
+graph-construction + physics logic exercised in Node against the real API
+payload (35 nodes / 34 edges / stable / no dupes across poll cycles) —
+couldn't screenshot it headless because your Firefox session was in the way,
+so the first human to actually SEE the brain will be you. Enjoy.
 
 Details, decisions, and every deletion below.
 
