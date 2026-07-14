@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.graph_executor import (  # noqa: E402
     GraphRun, _changed_files, _syntax_check, load_graph,
 )
-from lib.llm import extract_json, parse_text_tool_calls  # noqa: E402
+from lib.llm import extract_json  # noqa: E402
 
 
 def _mk_repo(tmp_path: Path) -> Path:
@@ -118,15 +118,6 @@ def test_extract_json():
     assert extract_json('noise {"a": 1} trailing')["a"] == 1
     assert extract_json('<think>hmm</think>{"b": [1,2]}')["b"] == [1, 2]
     assert extract_json("no json here") is None
-
-
-def test_parse_text_tool_calls_variants():
-    xml = ('<function=write_file>\n<parameter=path>\na.py\n</parameter>\n'
-           '<parameter=content>\nprint("}")\n</parameter>\n</function>')
-    calls = parse_text_tool_calls(xml)
-    assert calls[0]["function"]["name"] == "write_file"
-    assert calls[0]["function"]["arguments"]["content"] == 'print("}")'
-    assert parse_text_tool_calls("plain text, no calls") == []
 
 
 def test_graph_deadlock_detected(tmp_path, monkeypatch):

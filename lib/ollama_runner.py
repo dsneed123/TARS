@@ -437,20 +437,10 @@ class OllamaRunner:
             tokens_out += resp.get("eval_count", 0)
             messages.append(msg)
 
+            # Ollama ≥0.32 parses tool calls natively (renderer/parser per
+            # model) — no calls means the model considers itself done.
             tool_calls = msg.get("tool_calls") or []
             if not tool_calls:
-                # Some models (qwen via Ollama) emit tool calls as TEXT rather
-                # than the structured field — recover them before giving up.
-                # qwen3-coder uses an XML-ish format (see lib/llm.py), older
-                # qwen2.5 emits bare JSON objects; try both.
-                try:
-                    from llm import parse_text_tool_calls
-                except ImportError:
-                    from lib.llm import parse_text_tool_calls
-                tool_calls = (parse_text_tool_calls(msg.get("content", ""))
-                              or self._parse_text_tool_calls(msg.get("content", "")))
-            if not tool_calls:
-                # No tools requested -> the model considers itself done.
                 final_text = strip_think(msg.get("content", "")) or final_text
                 break
 
@@ -485,44 +475,6 @@ class OllamaRunner:
             uniq = sorted(set(changed))
             final_text = (final_text + f"\n\nFiles changed: {', '.join(uniq)}").strip()
         return self._result(final_text, tokens_in, tokens_out, start)
-
-    def _parse_text_tool_calls(self, content: str) -> list[dict]:
-        """Recover tool calls a model emitted as plain text instead of via the
-        structured tool_calls field. Models emit these in all sorts of shapes —
-        <tool_call> tags, ```json fences, one bare JSON object, or (commonly,
-        e.g. qwen2.5-coder) several bare JSON objects back-to-back with no
-        wrapper at all. Rather than special-case each wrapper, scan for
-        balanced top-level `{...}` objects anywhere in the text: this handles
-        every wrapper (the tag/fence text around a `{` is just skipped as
-        non-JSON) AND multiple back-to-back calls, and — unlike a lazy regex
-        (`\\{.*?\\}`) — doesn't truncate at the first `}` a write_file call's
-        own `content` argument happens to contain (e.g. code with a dict
-        literal)."""
-        content = strip_think(content or "").strip()
-        if not content:
-            return []
-        decoder = json.JSONDecoder()
-        calls = []
-        i, n = 0, len(content)
-        while i < n:
-            if content[i] != "{":
-                i += 1
-                continue
-            try:
-                obj, end = decoder.raw_decode(content, i)
-            except json.JSONDecodeError:
-                i += 1
-                continue
-            if isinstance(obj, dict) and "name" in obj:
-                args = obj.get("arguments", obj.get("parameters", {}))
-                if isinstance(args, str):
-                    try:
-                        args = json.loads(args)
-                    except json.JSONDecodeError:
-                        args = {}
-                calls.append({"function": {"name": obj["name"], "arguments": args}})
-            i = end
-        return calls
 
     def _exec_tool(self, name: str, args: dict, cwd: Optional[str]):
         """Execute one agent tool. Returns (output_text, changed_path_or_None)."""
