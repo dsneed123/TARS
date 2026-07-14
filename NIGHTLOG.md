@@ -147,3 +147,34 @@ Workflow judgments (mission asked for a verdict on each):
 - **chat engine** — keep (controller chat + soon the new CLI).
 - Prompts tightened: `self_improve.md` 92→40 lines, `discover_improvements.md` 54→30;
   `go_*`/`discord_chat`/`create_project` were already tight.
+
+## Milestone 3 — The CLI
+
+`bin/tars-cli.py` rewritten 1,895 → ~440 lines: one conversational REPL, zero
+subcommands, zero mode flags. `./tars` opens the loop; `./tars <anything>` is a
+one-shot. Routing is layered: regex fast-paths answer `status`/`cancel <id>`
+instantly (0 LLM calls), everything else goes to qwen2.5:7b with `format: json`
+(~1s), and chat streams token-by-token straight from Ollama with a system prompt
+carrying live cluster context (falls back to the controller's `/api/chat/generate`
+when Ollama isn't reachable, e.g. a remote laptop).
+
+Verified with real sessions:
+- Router test 5/5: "add a contact form … in tars-test" → create_task(tars-test);
+  "fix the typo in the README of crypto-trading-bot" → create_task(crypto-trading-bot);
+  "cancel imp-7b840a90" → cancel_task; questions → chat/status. Correct every time.
+- Mixed live session: chat ("is the coder model warm?") → streamed answer naming the
+  actual projects; "add an about section to index.html in tars-test" → queued
+  web-b01872dd with a one-line confirm; `status` showed it.
+- **Live pipeline progress**: added `GET /api/runs/<task_id>` to the controller
+  (serves the graph's per-node state); `watch <id>` renders nodes inline as they run:
+  `intake ✓ plan ∅ implement ✓11s verify ✓ review ∅ integrate ✓8s → PR #5` —
+  20 s from queue to merged PR. Controller was restarted for the new endpoint and
+  health-verified locally + through the tunnel (note: health lives at `/api/health`,
+  not `/health`).
+
+The watch demo also caught a real verify bug: tars-test has node_modules COMMITTED
+(June PR by the old pipeline), and verify's syntax gate was `node --check`-ing every
+tracked .js → unfixable fix-loop → escalation to the 70B. Verify now parse-checks
+ONLY the files the task changed, never vendored paths (go_runner's check got the same
+guard). The kill-tree trap and the 5m escalation keep_alive both behaved exactly as
+designed during the recovery, which was good to see under real fire.
