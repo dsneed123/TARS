@@ -1,5 +1,46 @@
 # NIGHTLOG — overnight/node-pipeline — 2026-07-14
 
+## TL;DR (read this over coffee)
+
+TARS now runs tasks through a **typed node graph** (intake → plan → implement → verify →
+review → integrate) on **qwen3-coder:30b** instead of the linear shell pipeline on
+qwen2.5-coder:32b, and the difference is not subtle:
+
+| metric | last night | tonight | delta |
+|---|---|---|---|
+| trivial task, end-to-end → merged PR | 4.5–25 min | **20.0 s** | **~13–75x** |
+| standard task (dark-mode toggle) | 15–25 min typical, 134 min worst | **7.2 min** | ~2–3x |
+| generation speed | 10.2 tok/s | **90 tok/s** | 8.8x |
+| repo size (code+prompts+config) | 19,974 lines | **13,691** | **−6,283 (−31%)** |
+| branch diff | — | 45 files, +1,986 / −7,163 | 12 commits, all pushed |
+
+Real PRs merged tonight by the new pipeline on dsneed123/tars-test: **#3, #4, #5**, plus
+the re-measure run — every one planned/implemented/verified/pushed by TARS itself.
+
+The CLI is now one conversational REPL (`./tars`, just type — no subcommands, no mode
+flags) with a local router model, streaming chat, and live per-node progress
+(`watch <id>` renders `intake ✓ plan ∅ implement ✓11s …` as the graph runs).
+
+**One thing needs you (1 minute):** `sudo` an Ollama upgrade —
+`curl -fsSL https://ollama.com/install.sh | sh` — so structured tool calls come from
+Ollama's parser instead of my fallback (then delete `parse_text_tool_calls` in
+lib/llm.py). The daemon is stopped (as you left it); `./tars.sh start` when ready —
+3 pending crypto-bot tasks will run through the new graph.
+
+**Top 3 next steps:**
+1. Upgrade Ollama (above), delete both text-tool-call fallback parsers, and re-verify
+   an E2E task — that also unlocks trying qwen3-coder at its native 256K context.
+2. Port go-sessions (website greenfield builds) onto the graph executor — it's the
+   last workflow on the legacy OllamaRunner path, and it would inherit verify/skip/
+   per-node state for free (then OllamaRunner shrinks to chat-only).
+3. The Obsidian-brain graph view on the controller dashboard (the stretch goal I
+   didn't reach): `state/runs/*.json` already has everything a live force-directed
+   view needs — nodes, statuses, timings — it just needs the front-end.
+
+Details, decisions, and every deletion below.
+
+---
+
 Working unattended on the node-graph rework. Judged against the Milestone 0 baseline below.
 
 ## Environment at start
@@ -209,3 +250,22 @@ reboot, no shutdown trap in the log, and the systemd unit is disabled; it was ru
 via nohup and evidently killed by hand right before the overnight mission was
 written. I left it stopped on purpose. When you start it (`./tars.sh start`), the
 3 pending crypto-trading-bot improvement tasks will run through the new graph.
+
+## Milestone 5 — Re-measure
+
+Official post-rework run of the M0-class task ("add a favicon link tag to index.html",
+tars-test): **20.0 s wall, 8 LLM calls, 30.6K/0.7K tokens, completed → pushed.**
+Node split: intake 0.9s · plan skipped · implement 11.1s (7 calls) · verify 0.0s ·
+review skipped · integrate 7.9s. Integration (push + PR + auto-merge) is now the
+second-biggest cost at ~8s — GitHub round-trips, not model time.
+
+Baseline equivalents were 4.5–25 min (typical 15–25 min for standard work, 134 min
+worst observed). LLM-call count for trivial work: 4–8 before (all against a 10 tok/s
+dense model) vs 8 now (7 against a 90 tok/s MoE + 1 sub-second router call) — the
+call COUNT is similar for trivial tasks, but the calls are ~9x faster and carry
+distilled context instead of raw transcripts. For standard tasks the old pipeline's
+context-digest + double-review overhead is simply gone.
+
+Line-count delta for the whole night: 19,974 → 13,691 total (−6,283 net, −31%),
+45 files changed, +1,986/−7,163 on the branch, 12 commits, all pushed to
+origin/overnight/node-pipeline.
