@@ -1,0 +1,62 @@
+# TARS node-pipeline configuration.
+# `models:` maps logical roles to local Ollama models (the node→model mapping
+# lives HERE, not in code). `nodes:` declares the task graph; projects can
+# override either under a top-level `graph:` key in config/projects/<name>.yaml.
+
+models:
+  router:                    # intent routing, task triage — small and instant
+    model: qwen2.5:7b
+    num_ctx: 8192
+    num_predict: 256
+    keep_alive: 60m
+  planner:                   # implementation briefs
+    model: qwen3-coder:30b
+    num_ctx: 32768
+    num_predict: 1200
+    keep_alive: 60m
+  coder:                     # the agent that writes code
+    model: qwen3-coder:30b
+    num_ctx: 65536
+    keep_alive: 60m
+  reviewer:                  # diff verdicts
+    model: qwen3-coder:30b
+    num_ctx: 32768
+    num_predict: 700
+    keep_alive: 60m
+  escalation:                # last-resort deeper model when the coder is stuck
+    model: deepseek-r1:70b
+    num_ctx: 16384
+    keep_alive: 5m
+
+nodes:
+  intake:
+    kind: intake             # classify complexity; 1 small-model call
+    model: router
+  plan:
+    kind: plan
+    model: planner
+    needs: [intake]
+    skip_for: [trivial, docs_only]   # trivial/docs tasks go straight to code
+    timeout: 300
+  implement:
+    kind: implement
+    model: coder
+    needs: [plan]
+    max_turns: 25
+    timeout: 900
+  verify:
+    kind: verify             # deterministic: diff + syntax + build + test
+    needs: [implement]
+    fix_model: coder         # distilled-context fix loop on failure
+    escalation_model: escalation
+    max_fix_attempts: 2
+  review:
+    kind: review
+    model: reviewer
+    needs: [verify]
+    skip_for: [trivial, docs_only]
+    max_review_rounds: 1     # one rebuild pass on rejection, then fail loudly
+    timeout: 300
+  integrate:
+    kind: integrate          # commit leftovers, push, PR, Discord
+    needs: [review]

@@ -34,3 +34,37 @@ Interpretation: three levers dominate everything else —
 3. tokens per call (distilled artifacts instead of raw transcripts).
 Started `ollama pull qwen3-coder:30b` (MoE, ~3.3B active, tool-calling native) in the
 background at 07:2x — it is the intended new coder model.
+
+## Milestone 1 — Design (what I'm building and why)
+
+**New pipeline = a typed node DAG, executed by `lib/graph_executor.py`:**
+`intake → plan → implement → verify → review → integrate`, declared in `config/graph.yaml`
+(per-project override via a `graph:` key in the project YAML). Each node records timing,
+LLM-call count, and tokens into `state/runs/<task_id>.json` as it goes.
+
+Key decisions:
+- **intake** (small fast model, 1 call, ~200 tokens out) classifies the task
+  (trivial / standard / complex, docs_only) — this drives skip logic: trivial/docs skip
+  `plan`, trivial skips `review`. Declared as `skip_for:` lists in YAML, not eval'd
+  expressions (safe + simple).
+- **verify** is deterministic (0 LLM calls): diff-exists check, syntax check, build, test.
+  Failures go to a distilled fix loop (error tail only, not the whole transcript):
+  retry coder ×2 → escalate to stronger model ×1 → fail loudly to Discord.
+- **Artifacts, not transcripts**: nodes exchange small structured values (task, repo_map,
+  plan, diff_stat + diff, test_output tail, verdict). Each node's prompt is built from
+  only its declared inputs.
+- **`lib/repo_map.py`**: deterministic per-project map (file tree + extracted symbols +
+  README head), cached at `<repo>/.tars/repo_map.json`, keyed on git HEAD — replaces the
+  old LLM-generated `.tars/context.md` (which cost a full slow LLM call per new repo and
+  went stale silently).
+- **`lib/llm.py`**: lean Ollama wrapper (text + native tool-calling agent loop) with
+  per-role model/num_ctx/num_predict/keep_alive from `config/graph.yaml`. Replaces the
+  role logic tangled into OllamaRunner; the bare-JSON tool-call recovery hacks die once
+  qwen3-coder's native tool calling is verified.
+- **Models**: coder/planner/reviewer = qwen3-coder:30b (MoE — same box, ~4-6x tok/s),
+  router/intake = qwen2.5:7b, escalation = deepseek-r1:70b (load-on-demand, short
+  keep_alive). Coder + router both stay resident (24 GB total on 119 GB — no more
+  auto-swap thrash, which the July logs show cost 40 GB reloads mid-task).
+- **Worker slims to a shim**: `bin/tars-worker.sh` becomes ~50 lines calling
+  `python3 -m lib.graph_executor`; git prep / verify / push / Discord all live inside
+  the graph nodes (kills the shell↔python round-trips and the 3 copies of verify logic).
