@@ -8,3 +8,14 @@ tasks:
   source: chat
   user: admin
   cancelled_at: '2026-07-08T23:21:20.728182+00:00'
+- id: web-b01872dd
+  title: add about section to index.html
+  description: add an about section to index.html in tars-test
+  project: tars-test
+  task_type: tars-code
+  priority: 50
+  status: pending
+  user_id: null
+  survey_task_id: null
+  source: website
+  created_at: '2026-07-14T07:46:31.630116+00:00'

@@ -320,7 +320,7 @@ class GraphRun:
         }
 
         problems = []
-        syntax_ok, syntax_detail = _syntax_check(cwd)
+        syntax_ok, syntax_detail = _syntax_check(cwd, _changed_files(cwd, base))
         if not syntax_ok:
             problems.append(f"SYNTAX:\n{syntax_detail}")
         for label, cmd in (("BUILD", build_cmd), ("TEST", test_cmd)):
@@ -413,18 +413,38 @@ class GraphRun:
         self._record(name, started, summary=f"pushed {branch} → {pr_url or 'direct-push'}")
 
 
-def _syntax_check(work_dir: str) -> tuple[bool, str]:
-    """Parse-check all tracked py/js files. Cheap ground truth for 'done'."""
+# Paths whose contents the task gate must never judge — vendored/generated
+# code fails `node --check` legitimately (tars-test's committed node_modules
+# sent verify into a 3-round fix loop it could never win).
+_VENDORED = ("node_modules/", "vendor/", "dist/", "build/", ".venv/", "venv/",
+             "__pycache__/", ".tars/")
+
+
+def _changed_files(work_dir: str, base: str) -> list[str]:
+    """Files this task touched (committed over base + working tree), minus
+    vendored paths — the only files verify should parse-check."""
+    files: set[str] = set()
+    files.update(_git(work_dir, "diff", "--name-only", f"{base}...HEAD").stdout.split())
+    for line in _git(work_dir, "status", "--porcelain").stdout.splitlines():
+        if line.strip():
+            files.add(line[3:].strip())
+    return [f for f in sorted(files)
+            if f and not any(v in f for v in _VENDORED)]
+
+
+def _syntax_check(work_dir: str, files: list[str]) -> tuple[bool, str]:
+    """Parse-check the given py/js files. Cheap ground truth for 'done'."""
     problems = []
-    py = _git(work_dir, "ls-files", "*.py").stdout.split()
+    base = Path(work_dir)
+    py = [f for f in files if f.endswith(".py") and (base / f).is_file()]
     if py:
         r = subprocess.run([sys.executable, "-m", "py_compile", *py], cwd=work_dir,
                            capture_output=True, text=True, timeout=120)
         if r.returncode != 0:
             problems.append(r.stderr.strip()[-1500:])
-    js = _git(work_dir, "ls-files", "*.js").stdout.split()
+    js = [f for f in files if f.endswith(".js") and (base / f).is_file()]
     if js and __import__("shutil").which("node"):
-        for f in js:
+        for f in js[:50]:
             r = subprocess.run(["node", "--check", f], cwd=work_dir,
                                capture_output=True, text=True, timeout=30)
             if r.returncode != 0:

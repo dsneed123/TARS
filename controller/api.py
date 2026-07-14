@@ -1505,6 +1505,27 @@ def task_log(task_id: str):
     return jsonify({"task_id": task_id, "file": filename, "log": text})
 
 
+@app.route("/api/runs/<task_id>", methods=["GET"])
+@require_api_key
+def task_run(task_id: str):
+    """Per-node pipeline progress for a task (state/runs/<id>.json, written
+    live by lib/graph_executor). Accepts the queue id or the worker's dedupe
+    id ("manual-<queue id>") — matches on substring, newest file wins."""
+    safe = re.sub(r"[^A-Za-z0-9_-]", "", task_id)
+    if not safe:
+        return jsonify({"error": "bad task id"}), 400
+    runs_dir = STATE_DIR / "runs"
+    candidates = sorted(runs_dir.glob(f"*{safe}*.json"),
+                        key=lambda p: p.stat().st_mtime, reverse=True) \
+        if runs_dir.exists() else []
+    if not candidates:
+        return jsonify({"error": f"No run recorded for task {task_id}"}), 404
+    doc = _read_json(candidates[0])
+    if not doc:
+        return jsonify({"error": "run file unreadable"}), 500
+    return jsonify(doc)
+
+
 # ---------------------------------------------------------------------------
 # Routes — Metrics
 # ---------------------------------------------------------------------------

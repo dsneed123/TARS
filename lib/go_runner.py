@@ -402,11 +402,13 @@ def _syntax_check(work_dir: str) -> tuple[bool, str]:
     whether the project configured a test command, so a task that leaves
     unparseable code is never trusted as "done" silently."""
     problems = []
+    vendored = ("node_modules/", "vendor/", "dist/", "build/", ".venv/", "venv/")
     try:
         py_files = subprocess.run(
             ["git", "ls-files", "*.py"], cwd=work_dir,
             capture_output=True, text=True, timeout=30,
         ).stdout.split()
+        py_files = [f for f in py_files if not any(v in f for v in vendored)][:400]
     except Exception:
         py_files = []
     if py_files:
@@ -425,6 +427,7 @@ def _syntax_check(work_dir: str) -> tuple[bool, str]:
             ["git", "ls-files", "*.js"], cwd=work_dir,
             capture_output=True, text=True, timeout=30,
         ).stdout.split()
+        js_files = [f for f in js_files if not any(v in f for v in vendored)][:50]
     except Exception:
         js_files = []
     if js_files:
