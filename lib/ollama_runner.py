@@ -450,7 +450,14 @@ class OllamaRunner:
             if not tool_calls:
                 # Some models (qwen via Ollama) emit tool calls as TEXT rather
                 # than the structured field — recover them before giving up.
-                tool_calls = self._parse_text_tool_calls(msg.get("content", ""))
+                # qwen3-coder uses an XML-ish format (see lib/llm.py), older
+                # qwen2.5 emits bare JSON objects; try both.
+                try:
+                    from llm import parse_text_tool_calls
+                except ImportError:
+                    from lib.llm import parse_text_tool_calls
+                tool_calls = (parse_text_tool_calls(msg.get("content", ""))
+                              or self._parse_text_tool_calls(msg.get("content", "")))
             if not tool_calls:
                 # No tools requested -> the model considers itself done.
                 final_text = strip_think(msg.get("content", "")) or final_text
