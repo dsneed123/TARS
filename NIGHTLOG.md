@@ -68,3 +68,46 @@ Key decisions:
 - **Worker slims to a shim**: `bin/tars-worker.sh` becomes ~50 lines calling
   `python3 -m lib.graph_executor`; git prep / verify / push / Discord all live inside
   the graph nodes (kills the shell↔python round-trips and the 3 copies of verify logic).
+
+## Milestone 1 — Results (verified end-to-end, twice)
+
+**Model benchmarks on this GB10 (measured, not guessed):**
+| model | role | gen tok/s | prompt tok/s | notes |
+|---|---|---|---|---|
+| qwen2.5-coder:32b (old) | everything | **10.2** | ~750 | dense — the old bottleneck |
+| qwen3-coder:30b (new) | coder/planner/reviewer | **90** | ~3200 | MoE, 65K ctx verified, loads in 13s |
+| qwen2.5:7b | router/intake | 46 | ~700 | intake verdict in <1s |
+| deepseek-r1:70b | escalation only | ~10 | — | load-on-demand, keep_alive 5m |
+
+**E2E runs through the new graph (real pushes to dsneed123/tars-test):**
+- Trivial task (footer): **21.3 s wall**, 7 LLM calls, 12.2K/0.9K tok → PR #3 merged.
+  Old pipeline for this class: 4.5–25 min. **~13–70x.**
+- Standard task (dark-mode toggle w/ CSS vars + localStorage + OS pref): **7.2 min wall**,
+  21 calls, review approved score 95 → PR #4 merged. Old pipeline typical: 15–25 min
+  (and it would have made 2 extra LLM calls for context-digest + separate self-review).
+- Skip logic verified live: trivial → plan+review skipped; standard → full path.
+- Verify node is deterministic (0 LLM calls) and caught nothing to fix (both runs PASS);
+  fix-loop and escalation paths exist but weren't exercised by these tasks.
+
+**LLM-call diet vs old pipeline:** deleted the per-repo LLM context digest (replaced by
+the deterministic repo map), merged quality-review + self-review into one review node,
+trivial tasks now cost 2 LLM node types total (intake + implement).
+
+**Found & fixed along the way:**
+- `git_manager.ensure_cloned()` used `git pull` → divergence bricked every task on the
+  project (this is what killed the first live baseline attempt at 07:10). Now hard-syncs
+  disposable clones with `fetch + reset --hard origin/<base>`.
+- Repo-map cache first landed inside the work tree and got committed by the agent
+  (visible in tars-test PR #3) — moved to `state/repo_maps/`.
+- The 06:09 crypto task log shows a worker that started and died silently — the old
+  pipeline's failure modes are exactly why per-node state records now exist.
+
+**Blocked (needs you, 1 minute):** Ollama 0.30.9 doesn't parse qwen3-coder's tool-call
+format into structured `tool_calls` (the model omits the opening `<tool_call>` tag).
+The fix is upgrading Ollama (≥0.31), which needs sudo:
+`curl -fsSL https://ollama.com/install.sh | sh` — I couldn't enter a password.
+Until then `lib/llm.py:parse_text_tool_calls()` recovers the calls (tested, works, and
+`ollama_runner` falls back to it too); delete that function after the upgrade.
+
+Legacy paths (chat, discovery, go sessions) also moved to qwen3-coder via tars.conf, and
+auto-swap is now off by default — coder + router co-reside in 24GB of 119GB.
