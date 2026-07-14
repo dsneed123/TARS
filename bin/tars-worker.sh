@@ -45,8 +45,10 @@ notify_django() {
 
 LOG_FILE="${TARS_LOGS}/task_${TASK_ID}_$(date +%Y%m%d_%H%M%S).log"
 
-# Temp file for passing large data to Python (cleaned up on exit)
-TMPDATA=$(mktemp "${TARS_STATE}/worker_XXXXXX")
+# Temp file for passing large data to Python (cleaned up on exit).
+# NOTE: must NOT match the controller's worker-registration glob
+# (state/worker_*) or leftover temp files show up as phantom worker nodes.
+TMPDATA=$(mktemp "${TARS_STATE}/wtmp_XXXXXX")
 
 # Recursively kill all descendants on exit so Claude subprocesses don't
 # outlive a killed/crashed worker and continue burning tokens.
@@ -128,7 +130,13 @@ from lib.git_manager import GitManager
 gm = GitManager(os.environ['TARS_REPO'], base_branch=os.environ['TARS_BASE_BRANCH'], strategy=os.environ['TARS_GIT_STRATEGY'])
 gm.ensure_cloned()
 gm.create_branch(os.environ['TARS_TASK_ID'])
-"
+" >> "$LOG_FILE" 2>&1 || {
+    # Without this the task log just stops at "Preparing workspace..." and
+    # the real reason (network down, bad remote, dirty clone) is lost.
+    log "ERROR" "Workspace preparation failed — see above for the git error"
+    notify_django "failed" "\"error_message\":\"Workspace preparation failed\""
+    exit 1
+}
 
 WORK_DIR="${TARS_REPOS}/$(echo "${REPO}" | awk -F/ '{print $NF}')"
 
@@ -153,19 +161,22 @@ echo "$TASK_JSON" > "$TMPDATA"
 
 IMPL_RESULT=$(TARS_TASK_FILE="$TMPDATA" TARS_REPO="$REPO" TARS_WORK_DIR="$WORK_DIR" \
 TARS_CLAUDE_MODEL="$CLAUDE_MODEL" TARS_CLAUDE_MAX_TURNS="$CLAUDE_MAX_TURNS" \
+TARS_BASE_BRANCH="$BASE_BRANCH" \
 "${TARS_PYTHON}" -c "
 import json, os
-from lib.claude_runner import ClaudeRunner
+from lib.task_executor import TaskExecutor
 
 task = json.load(open(os.environ['TARS_TASK_FILE']))
-runner = ClaudeRunner(model=os.environ['TARS_CLAUDE_MODEL'], max_turns=int(os.environ['TARS_CLAUDE_MAX_TURNS']))
-result = runner.run_with_prompt_file(
-    'implement_task.md',
-    variables={
-        'TASK_TITLE': task.get('title', ''),
-        'TASK_DESCRIPTION': task.get('description', ''),
-        'REPO_NAME': os.environ['TARS_REPO'],
-    },
+# Plan -> build -> quality-review loop (not a single shallow pass).
+executor = TaskExecutor(
+    model=os.environ['TARS_CLAUDE_MODEL'],
+    max_turns=int(os.environ['TARS_CLAUDE_MAX_TURNS']),
+    base_branch=os.environ['TARS_BASE_BRANCH'],
+)
+result = executor.execute(
+    title=task.get('title', ''),
+    description=task.get('description', ''),
+    repo=os.environ['TARS_REPO'],
     cwd=os.environ['TARS_WORK_DIR'],
     timeout=900,
 )
@@ -293,15 +304,26 @@ DiscordLogger().log_error(os.environ['TARS_MSG'], 'Check logs: ' + os.environ['T
     fi
 fi
 
-# --- Step 6: Check if there are changes to commit ---
+# --- Step 6: Check if there are changes to commit/push ---
+# The local Ollama agent has a run_command tool and may have committed its work
+# itself, leaving a CLEAN tree. So treat the task as productive if EITHER the
+# working tree is dirty OR the branch is ahead of the base branch — checking
+# only for uncommitted changes (as Claude required) misses agent-made commits.
 export PYTHONPATH="${TARS_HOME}:${PYTHONPATH:-}"
 cd "$WORK_DIR"
+WORKTREE_DIRTY=false
 if ! "${GIT_CMD}" diff --quiet HEAD 2>/dev/null || [ -n "$("${GIT_CMD}" status --porcelain 2>/dev/null)" ]; then
+    WORKTREE_DIRTY=true
+fi
+COMMITS_AHEAD=$("${GIT_CMD}" rev-list --count "${BASE_BRANCH}..HEAD" 2>/dev/null || echo 0)
+
+if [ "$WORKTREE_DIRTY" = true ] || [ "${COMMITS_AHEAD:-0}" -gt 0 ]; then
     # --- Step 7: Self-review ---
-    log "INFO" "Running self-review..."
+    log "INFO" "Running self-review (worktree_dirty=${WORKTREE_DIRTY}, commits_ahead=${COMMITS_AHEAD})..."
     notify_django "reviewing"
-    "${GIT_CMD}" diff HEAD > "$TMPDATA" 2>/dev/null || true
-    "${GIT_CMD}" diff --cached >> "$TMPDATA" 2>/dev/null || true
+    # Review everything the branch adds over base: committed + uncommitted.
+    "${GIT_CMD}" diff "${BASE_BRANCH}...HEAD" > "$TMPDATA" 2>/dev/null || true
+    "${GIT_CMD}" diff HEAD >> "$TMPDATA" 2>/dev/null || true
 
     if [ -s "$TMPDATA" ]; then
         REVIEW=$(TARS_DIFF_FILE="$TMPDATA" TARS_WORK_DIR="$WORK_DIR" \
@@ -339,8 +361,13 @@ DiscordLogger().log_warning(os.environ['TARS_MSG'])
     # --- Step 8: Commit, push, PR ---
     log "INFO" "Committing and pushing..."
     BRANCH=$("${GIT_CMD}" rev-parse --abbrev-ref HEAD)
-    "${GIT_CMD}" add -A
-    "${GIT_CMD}" commit -m "${TASK_TITLE}"
+    # Only commit if the agent left uncommitted changes — it may have already
+    # committed its work itself, in which case `git commit` would error on an
+    # empty index and abort the push.
+    if [ "$WORKTREE_DIRTY" = true ]; then
+        "${GIT_CMD}" add -A
+        "${GIT_CMD}" commit -m "${TASK_TITLE}"
+    fi
 
     # Write task metadata to temp file for push_and_pr
     jq -n --arg title "$TASK_TITLE" --arg desc "$TASK_DESC" \

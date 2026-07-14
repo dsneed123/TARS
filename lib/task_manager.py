@@ -7,12 +7,61 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from lib.config_loader import load_queue, list_projects, load_project
+import yaml
+
+from lib.config_loader import load_queue, list_projects, load_project, QUEUES_DIR, CONFIG_DIR
 from lib.git_manager import GitManager
 
 logger = logging.getLogger("tars.task_manager")
 
 TARS_HOME = Path(os.environ.get("TARS_HOME", Path(__file__).parent.parent))
+
+
+_SNAPSHOT_SKIP_EXT = {
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".svg", ".pdf", ".zip",
+    ".gz", ".lock", ".map", ".woff", ".woff2", ".ttf", ".eot", ".mp4", ".mp3",
+}
+
+
+def _repo_snapshot(work_dir: str, max_chars: int = 16000, per_file: int = 4000) -> str:
+    """Build a compact text snapshot of a repo (file tree + readable file
+    contents) so a single-completion model can analyze it without file tools.
+    READMEs and smaller files are included first until the char budget runs out."""
+    import subprocess
+
+    git = os.environ.get("GIT_CMD", "git")
+    try:
+        listing = subprocess.run(
+            [git, "ls-files"], cwd=work_dir, capture_output=True, text=True, timeout=30
+        ).stdout
+    except Exception:  # noqa: BLE001
+        listing = ""
+    files = [f for f in listing.splitlines() if f.strip()]
+    if not files:
+        return ""
+
+    out = [f"FILE TREE ({len(files)} files):\n" + "\n".join(files[:300]) + "\n"]
+    total = len(out[0])
+
+    def _key(f: str):
+        return (0 if "readme" in f.lower() else 1, len(f))
+
+    for rel in sorted(files, key=_key):
+        p = Path(work_dir) / rel
+        if not p.is_file() or p.suffix.lower() in _SNAPSHOT_SKIP_EXT:
+            continue
+        try:
+            content = p.read_text(errors="replace")
+        except OSError:
+            continue
+        if len(content) > per_file:
+            content = content[:per_file] + "\n...[truncated]..."
+        block = f"\n=== {rel} ===\n{content}\n"
+        if total + len(block) > max_chars:
+            break
+        out.append(block)
+        total += len(block)
+    return "".join(out)
 
 
 def _parse_suggestion_array(text: str) -> list[dict]:
@@ -125,14 +174,26 @@ class TaskManager:
             task_id = f"manual-{item.get('id', hash(item.get('title', '')))}".replace(" ", "-")
             if self._is_completed(task_id):
                 continue
-            tasks.append({
+            task = {
                 "id": task_id,
+                # The task's own id inside its queue YAML file (queue.yaml or
+                # queues/<project>.yaml) — distinct from the "manual-"
+                # prefixed dedupe id above. Needed to write the status back
+                # once the task finishes (see complete_task()).
+                "queue_id": item.get("id"),
                 "title": item.get("title", "Untitled"),
                 "description": item.get("description", ""),
                 "project": project,
-                "source": "manual",
+                # Preserve the real source ("website") so the worker knows to
+                # report live status; fall back to "manual" for hand-added items.
+                "source": item.get("source", "manual"),
                 "priority": item.get("priority", PRIORITY_MANUAL),
-            })
+            }
+            # Carry the website's task id through so the worker's notify_django
+            # callback can drive the progress bar on tarsai.dev.
+            if item.get("survey_task_id") is not None:
+                task["survey_task_id"] = item["survey_task_id"]
+            tasks.append(task)
         return tasks
 
     def get_github_issues(self, project_name: str) -> list[dict]:
@@ -203,7 +264,16 @@ class TaskManager:
             gm = GitManager(repo)
             work_dir = gm.ensure_cloned()
 
-            runner = ClaudeRunner(model=cfg.get("claude", {}).get("model", "sonnet"))
+            # The discover prompt runs as a single text completion (no file
+            # tools), so feed it the actual repo contents — otherwise it suggests
+            # tasks blind. Use the 32B coder (fast, often already warm) instead of
+            # the 70B reasoner so the user-facing button returns in time.
+            snapshot = _repo_snapshot(str(work_dir))
+            ollama = os.environ.get("TARS_LLM_PROVIDER", "").lower() == "ollama"
+            default_model = "qwen2.5-coder:32b" if ollama else cfg.get("claude", {}).get("model", "sonnet")
+            discover_model = os.environ.get("OLLAMA_DISCOVER_MODEL", default_model)
+
+            runner = ClaudeRunner(model=discover_model)
             result = runner.run_with_prompt_file(
                 "discover_improvements.md",
                 variables={
@@ -211,10 +281,11 @@ class TaskManager:
                     "FOCUS_AREAS": focus,
                     "PROJECT_DESCRIPTION": description or f"A {project_type} project",
                     "PROJECT_TYPE": project_type,
+                    "REPO_SNAPSHOT": snapshot or "(repository is empty — no files yet)",
                 },
                 cwd=str(work_dir),
                 max_turns=5,
-                timeout=300,
+                timeout=int(os.environ.get("TARS_DISCOVER_TIMEOUT", "420")),
             )
 
             # Parse suggestions from Claude's response
@@ -283,7 +354,49 @@ class TaskManager:
         tasks = self.get_all_tasks()
         return tasks[0] if tasks else None
 
-    def complete_task(self, task_id: str):
-        """Mark a task as completed."""
+    def complete_task(self, task_id: str, project: Optional[str] = None,
+                       queue_id: Optional[str] = None, status: str = "completed"):
+        """Mark a task as completed (or failed/abandoned).
+
+        Records the id in the dedupe list so the scheduler never re-picks it
+        (existing behavior), and — when project/queue_id are known, i.e. this
+        was a manual/website task with a real queue-file entry — also
+        rewrites that entry's `status` field so the controller API and CLI
+        (which read the queue YAML directly, not this dedupe list) stop
+        showing it as pending.
+        """
         self._mark_completed(task_id)
+        if project and queue_id:
+            self._update_queue_status(project, queue_id, status)
         logger.info("Task completed: %s", task_id)
+
+    def _update_queue_status(self, project: str, queue_id: str, status: str) -> bool:
+        """Find queue_id in the project's queue file (falling back to the
+        legacy global queue.yaml) and set its status, mirroring what the
+        controller's /api/tasks/<id>/cancel endpoint does. Returns True if a
+        matching task was found and updated."""
+        import time as _time
+
+        candidates = [QUEUES_DIR / f"{project}.yaml", CONFIG_DIR / "queue.yaml"]
+        for path in candidates:
+            if not path.exists():
+                continue
+            try:
+                with open(path) as f:
+                    raw = yaml.safe_load(f) or {}
+            except (OSError, yaml.YAMLError):
+                continue
+            found = False
+            for t in raw.get("tasks", []) or []:
+                if t.get("id") == queue_id:
+                    t["status"] = status
+                    t[f"{status}_at"] = _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())
+                    found = True
+                    break
+            if found:
+                tmp = path.with_suffix(".tmp")
+                with open(tmp, "w") as f:
+                    yaml.dump(raw, f, default_flow_style=False, sort_keys=False)
+                tmp.rename(path)
+                return True
+        return False

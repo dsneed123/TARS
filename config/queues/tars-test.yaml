@@ -1,0 +1,10 @@
+tasks:
+- id: chat-d0d7a60b
+  title: watch smoke test cancel me
+  description: watch smoke test cancel me
+  project: tars-test
+  priority: 50
+  status: cancelled
+  source: chat
+  user: admin
+  cancelled_at: '2026-07-08T23:21:20.728182+00:00'

@@ -1,0 +1,24 @@
+repo: dsneed123/tars-test
+description: Auto-created from website task for dsneed123/tars-test
+type: generic
+enabled: true
+git:
+  strategy: branch-pr
+  base_branch: main
+  pr_labels: []
+build:
+  type: generic
+  command: null
+test:
+  command: null
+issues:
+  enabled: false
+  labels:
+  - tars
+auto_discover:
+  enabled: false
+  interval: 86400
+  focus_areas: []
+claude:
+  model: sonnet
+  max_turns: 20

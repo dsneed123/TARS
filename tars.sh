@@ -72,10 +72,6 @@ cmd_start() {
     echo "TARS started (PID: ${daemon_pid})"
     echo "Logs: tail -f ${TARS_LOGS}/daemon.log"
 
-    # Start health watchdog
-    nohup "${TARS_BIN}/tars-health.sh" >> "${TARS_LOGS}/health.log" 2>&1 &
-    echo "Health watchdog started"
-
     # Start Discord bot if configured
     if [ -f "${TARS_CONFIG}/discord.yaml" ] && "${TARS_PYTHON}" -c "
 import yaml

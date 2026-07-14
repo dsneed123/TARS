@@ -31,6 +31,17 @@ log() {
 echo $$ > "$TARS_PID_FILE"
 log "INFO" "Daemon started (PID: $$)"
 
+# We just won the exclusive lock above, so no other daemon instance can be
+# running concurrently — any current_task.json left on disk is necessarily
+# stale, from a previous instance that was killed instead of exiting cleanly
+# through the trap/cleanup path below. Clear it so status/CLI/dashboard don't
+# report a phantom "in progress" task forever. The underlying queue entry is
+# untouched and still pending, so it'll simply be retried this cycle.
+if [ -f "${TARS_STATE}/current_task.json" ]; then
+    log "WARN" "Clearing stale current_task.json from a previous unclean shutdown"
+    rm -f "${TARS_STATE}/current_task.json"
+fi
+
 # Trap signals for clean shutdown
 RUNNING=true
 trap 'RUNNING=false; log "INFO" "Shutdown signal received"' SIGTERM SIGINT SIGHUP
@@ -96,6 +107,31 @@ json.dump({'paused': True, 'reason': 'token_budget', 'wait_s': ${WAIT_SECS}, 'un
         continue
     fi
 
+    # Network gate — every task needs GitHub (clone/fetch/push). During an
+    # outage each attempt fails in seconds, silently burning all
+    # MAX_TASK_RETRIES in a couple of minutes and abandoning tasks whose
+    # implementation already succeeded. Wait it out instead.
+    if ! getent hosts github.com >/dev/null 2>&1; then
+        log "WARN" "Network gate: cannot resolve github.com — pausing ${TARS_POLL_INTERVAL}s (task retries untouched)"
+        sleep "$TARS_POLL_INTERVAL" &
+        wait $! || true
+        continue
+    fi
+
+    # Self-improvement tick — for projects with self_improve.enabled, queue
+    # the next improvement round when the previous one has drained. All gates
+    # (disabled / pending tasks / interval) are cheap; silent when idle.
+    IMPROVE_OUT=$("${TARS_PYTHON}" -c "
+from lib.improvement_loop import run_all
+for line in run_all():
+    print(line)
+" 2>/dev/null 9>&- || true)
+    if [ -n "$IMPROVE_OUT" ]; then
+        while IFS= read -r line; do
+            log "INFO" "$line"
+        done <<< "$IMPROVE_OUT"
+    fi
+
     # Check if we should send daily summary
     TODAY=$(date +%Y-%m-%d)
     if [ "$LAST_SUMMARY_DATE" != "$TODAY" ]; then
@@ -133,15 +169,20 @@ m.send_daily_summary()
     TASK_TITLE=$(echo "$TASK_JSON" | jq -r '.title')
     TASK_ID=$(echo "$TASK_JSON" | jq -r '.id // "unknown"')
     TASK_SOURCE=$(echo "$TASK_JSON" | jq -r '.source // "unknown"')
+    # Raw id inside the queue YAML (manual/website tasks only) — needed to
+    # flip that entry's status when the task finishes, since TASK_ID above is
+    # the dedupe id (e.g. "manual-web-xxxx"), not the queue file's own id.
+    TASK_QUEUE_ID=$(echo "$TASK_JSON" | jq -r '.queue_id // empty')
 
     # Check for permanent failure marker (permission errors, etc.)
     PERM_FAIL_FILE="${TARS_STATE}/task_perm_fail_${TASK_ID}"
     if [ -f "$PERM_FAIL_FILE" ]; then
         log "WARN" "Task ${TASK_ID} has a permanent failure — skipping"
-        TARS_TASK_ID="$TASK_ID" "${TARS_PYTHON}" -c "
+        TARS_TASK_ID="$TASK_ID" TARS_PROJECT="$PROJECT" TARS_QUEUE_ID="$TASK_QUEUE_ID" "${TARS_PYTHON}" -c "
 import os
 from lib.task_manager import TaskManager
-TaskManager().complete_task(os.environ['TARS_TASK_ID'])
+TaskManager().complete_task(os.environ['TARS_TASK_ID'], project=os.environ.get('TARS_PROJECT') or None,
+                             queue_id=os.environ.get('TARS_QUEUE_ID') or None, status='failed')
 " 2>/dev/null || true
         rm -f "$PERM_FAIL_FILE"
         clear_task_failures "$TASK_ID"
@@ -152,11 +193,13 @@ TaskManager().complete_task(os.environ['TARS_TASK_ID'])
     TASK_FAIL_COUNT=$(get_task_failures "$TASK_ID")
     if [ "$TASK_FAIL_COUNT" -ge "$MAX_TASK_RETRIES" ]; then
         log "WARN" "Task ${TASK_ID} has failed ${TASK_FAIL_COUNT} times (max ${MAX_TASK_RETRIES}), skipping permanently"
-        # Mark as completed so scheduler stops picking it up
-        TARS_TASK_ID="$TASK_ID" "${TARS_PYTHON}" -c "
+        # Mark as failed so the scheduler stops picking it up (dedupe list)
+        # and the queue/dashboard stop showing it as pending.
+        TARS_TASK_ID="$TASK_ID" TARS_PROJECT="$PROJECT" TARS_QUEUE_ID="$TASK_QUEUE_ID" "${TARS_PYTHON}" -c "
 import os
 from lib.task_manager import TaskManager
-TaskManager().complete_task(os.environ['TARS_TASK_ID'])
+TaskManager().complete_task(os.environ['TARS_TASK_ID'], project=os.environ.get('TARS_PROJECT') or None,
+                             queue_id=os.environ.get('TARS_QUEUE_ID') or None, status='failed')
 " 2>/dev/null || true
         TARS_PROJECT="$PROJECT" TARS_TITLE="$TASK_TITLE" "${TARS_PYTHON}" -c "
 import os
@@ -200,17 +243,22 @@ print('yes' if not ErrorAnalyzer().is_locked(os.environ['TARS_PROJECT']) else 'n
         continue
     }
 
-    # Execute task via worker
-    if "${TARS_BIN}/tars-worker.sh" "$PROJECT" "$TASK_JSON"; then
+    # Execute task via worker. 9>&- closes the daemon-lock fd for the child:
+    # otherwise a long-running model subprocess that survives a worker kill
+    # inherits the flock and blocks every future daemon start ("Another
+    # tars-daemon holds the lock" with an empty PID).
+    if "${TARS_BIN}/tars-worker.sh" "$PROJECT" "$TASK_JSON" 9>&-; then
         rm -f "${TARS_STATE}/current_task.json"
         log "INFO" "Task completed successfully: ${TASK_TITLE}"
         clear_task_failures "$TASK_ID"
 
-        # Mark task as completed so it's not picked up again
-        TARS_TASK_ID="$TASK_ID" "${TARS_PYTHON}" -c "
+        # Mark task as completed so it's not picked up again, and flip its
+        # queue-file status so the controller API / dashboard stop listing it.
+        TARS_TASK_ID="$TASK_ID" TARS_PROJECT="$PROJECT" TARS_QUEUE_ID="$TASK_QUEUE_ID" "${TARS_PYTHON}" -c "
 import os
 from lib.task_manager import TaskManager
-TaskManager().complete_task(os.environ['TARS_TASK_ID'])
+TaskManager().complete_task(os.environ['TARS_TASK_ID'], project=os.environ.get('TARS_PROJECT') or None,
+                             queue_id=os.environ.get('TARS_QUEUE_ID') or None, status='completed')
 " 2>/dev/null || true
 
         # Record metrics (use env vars, not string embedding)

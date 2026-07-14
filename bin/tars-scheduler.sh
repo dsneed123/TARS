@@ -9,7 +9,14 @@ source "${SCRIPT_DIR}/../tars.conf"
 # Change to TARS_HOME so Python imports work
 cd "$TARS_HOME"
 
-# Get next task from task manager (respecting active projects)
+# Get next task from task manager (respecting active projects).
+# Python's stderr goes to a temp file: on failure we replay it to our own
+# stderr so the daemon can log WHY ("Token budget exceeded", "All projects
+# locked", ...) instead of the empty "No tasks available: " it used to get;
+# on success we discard it so warnings can't corrupt the JSON on stdout.
+ERR_TMP=$(mktemp)
+trap 'rm -f "$ERR_TMP"' EXIT
+
 NEXT=$("${TARS_PYTHON}" -c "
 import json, sys
 from pathlib import Path
@@ -65,9 +72,13 @@ if not project:
 # Output task for worker
 output = {'project': project, 'task': task}
 print(json.dumps(output))
-" 2>/dev/null)
+" 2>"$ERR_TMP") || {
+    cat "$ERR_TMP" >&2
+    exit 1
+}
 
 if [ -z "$NEXT" ]; then
+    echo "Scheduler produced no output" >&2
     exit 1
 fi
 

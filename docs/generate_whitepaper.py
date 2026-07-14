@@ -220,7 +220,7 @@ def build():
     pdf.ln(4)
     pdf.set_font(FONT, "I", 11)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 8, "A new category of autonomous AI coding tool",
+    pdf.cell(0, 8, "A local-first, self-verifying autonomous coding and business tool",
              align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(24)
     # Decorative rule
@@ -229,19 +229,6 @@ def build():
     cx = pdf.w / 2
     pdf.line(cx - 40, pdf.get_y(), cx + 40, pdf.get_y())
     pdf.ln(10)
-    # TARS quote
-    pdf.set_font(FONT, "I", 10)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 7,
-             '"I have a cue light I can use to show you when I\'m joking,',
-             align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 7,
-             'if you want."',
-             align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(2)
-    pdf.set_font(FONT, "", 9)
-    pdf.cell(0, 6, "-- TARS, Interstellar (2014)",
-             align="C", new_x="LMARGIN", new_y="NEXT")
 
     # Author
     pdf.ln(20)
@@ -258,7 +245,7 @@ def build():
     pdf.ln(16)
     pdf.set_font(FONT, "", 10)
     pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 6, "Technical Whitepaper  |  March 2026",
+    pdf.cell(0, 6, "Technical Whitepaper  |  July 2026",
              align="C", new_x="LMARGIN", new_y="NEXT")
 
     # -----------------------------------------------------------------------
@@ -345,39 +332,59 @@ def build():
     # -----------------------------------------------------------------------
     section_title(pdf, 3, "How TARS Works")
 
-    subsection(pdf, "Architecture: Three Layers")
+    subsection(pdf, "Architecture: Four Layers")
     bold_bullet_list(pdf, [
         ("Shell scripts (bin/)",
          "Orchestration layer. Manages the daemon lifecycle, process "
          "management, lock files, and signal handling."),
         ("Python modules (lib/)",
-         "Logic layer. Task queue, token budget management, Discord "
-         "notifications, error classification, and circuit breakers."),
-        ("Claude CLI",
-         "Intelligence layer. Invoked as a subprocess for each coding task. "
-         "Reads code, writes patches, runs tests -- the actual AI brain."),
+         "Logic layer. Task queue, budget tracking, Discord notifications, "
+         "error classification, circuit breakers, and git operations."),
+        ("Local Ollama models",
+         "Intelligence layer. TARS runs entirely on locally-hosted open "
+         "models -- no Claude API, no per-token billing, no data leaving "
+         "the machine. Work is routed by role, not one model doing "
+         "everything: a coding-tuned model (qwen2.5-coder:32b) implements "
+         "and edits files through a tool-calling agent loop; a larger "
+         "reasoning model (deepseek-r1:70b) handles planning, review, and "
+         "fixing, where deeper multi-step reasoning matters more than "
+         "tool-calling speed."),
+        ("Flask controller (controller/)",
+         "REST API + dashboard layer. Exposes project management, task "
+         "queues, and TARS Go sessions over HTTP with API-key auth, so a "
+         "hosted front end (or a friend's browser) can drive a TARS "
+         "instance running on someone else's hardware."),
     ])
 
-    subsection(pdf, "The Daemon Loop")
+    subsection(pdf, "Two Ways TARS Works")
     body_text(pdf,
-        "TARS runs as a background daemon with a continuous work loop:"
+        "TARS operates in two complementary modes, both ending in the same "
+        "place: real commits, pushed and visible."
     )
+    bold_bullet_list(pdf, [
+        ("The daemon loop -- one task at a time",
+         "A background process that continuously pulls from a prioritised "
+         "queue, implements one task, tests it, self-reviews the diff, and "
+         "pushes -- then repeats. Suited to an ongoing backlog of "
+         "well-scoped tasks."),
+        ("TARS Go -- goal-directed sessions",
+         "Give TARS a single high-level goal (\"build X\") instead of a "
+         "task list, and it plans its own task breakdown, executes it, "
+         "reviews its own completeness against the original goal, and "
+         "loops -- adding new tasks and iterating -- until the review "
+         "score clears a bar or the iteration budget runs out. This is "
+         "closer to how a human would tackle an open-ended project than a "
+         "single-shot prompt."),
+    ])
     code_block(pdf,
-        "discover --> prioritise --> implement --> test -->\n"
-        "self-review --> deploy --> notify --> repeat"
-    )
-    body_text(pdf,
-        "Each iteration picks the highest-priority task, invokes Claude CLI "
-        "to implement it, runs the project's test suite, performs an "
-        "AI-powered self-review of the diff, and (if all gates pass) pushes "
-        "the change and notifies via Discord. If any step fails, the "
-        "self-healing pipeline retries with diagnostic context."
+        "TARS Go loop:\n"
+        "  plan --> execute --> verify --> review --> (repeat or stop)"
     )
 
-    subsection(pdf, "Task Pipeline")
+    subsection(pdf, "Task Pipeline (Daemon Mode)")
     body_text(pdf,
-        "Tasks flow into TARS from multiple sources, converging into a "
-        "single prioritised queue:"
+        "Tasks flow into the daemon from multiple sources, converging into "
+        "a single prioritised queue:"
     )
     bullet_list(pdf, [
         "Manual queue -- developers add tasks via CLI or config files",
@@ -386,19 +393,33 @@ def build():
         "missing tests, code smells, and improvement opportunities",
     ])
 
-    subsection(pdf, "Safety Systems")
+    subsection(pdf, "Safety & Verification Systems")
     bold_bullet_list(pdf, [
         ("Circuit breakers",
          "After consecutive failures, TARS pauses the project to prevent "
          "cascading damage, then alerts the team."),
-        ("Token budgets",
-         "Configurable daily/hourly spend limits with peak-hour throttling "
-         "to control costs."),
+        ("Verify before trusting \"done\"",
+         "A task is never accepted as complete just because the model "
+         "didn't error -- that only proves it didn't crash. TARS Go runs "
+         "an automated syntax check (and the project's own test command, "
+         "if configured) after every task, and a failure immediately "
+         "queues a fix task in the same iteration rather than moving on."),
+        ("Reviewer gets ground truth, not self-reports",
+         "The review step that scores a TARS Go session's completeness is "
+         "given the actual verification output, not just the tasks' own "
+         "summaries -- so a commit message claiming something was fixed "
+         "isn't taken on faith."),
+        ("Stuck-loop detection",
+         "If a proposed fix is a near-duplicate of one already attempted "
+         "and failed, TARS refuses to silently retry it forever. After a "
+         "small number of repeat attempts, the session stops and flags "
+         "itself for human review instead of burning the rest of its "
+         "iteration budget circling the same unresolved issue."),
         ("Auto-patch retries",
-         "When tests fail, TARS feeds the error back to Claude for an "
+         "When tests fail, TARS feeds the error back to the model for an "
          "automatic fix attempt before giving up."),
         ("Self-review gates",
-         "Every diff is reviewed by a second AI pass before merging, "
+         "Every diff is reviewed by a second model pass before merging, "
          "catching regressions the test suite might miss."),
     ])
 
@@ -414,30 +435,40 @@ def build():
     )
 
     bold_bullet_list(pdf, [
+        ("Local-first -- no API key, no per-token cost",
+         "Runs entirely on self-hosted Ollama models. No Claude/OpenAI API "
+         "dependency, no data leaving the machine, no per-token bill that "
+         "scales with usage -- the only real cost is the hardware."),
+        ("Goal-directed autonomous sessions (TARS Go)",
+         "Give it a goal, not a task list. It plans its own breakdown, "
+         "executes, verifies, reviews its own completeness against the "
+         "original goal, and iterates -- closer to how a person tackles "
+         "an open-ended project than a single prompt-response cycle."),
+        ("Self-verifying, not self-reporting",
+         "Task completion is checked against an actual syntax/test run, "
+         "not just \"the model said it worked.\" A stuck-loop detector "
+         "stops a non-converging session for human review instead of "
+         "cycling on the same failing fix indefinitely."),
         ("Autonomous daemon operation",
          "Runs 24/7 as a background process. Survives reboots, handles "
          "signals gracefully, and resumes work automatically."),
-        ("Self-healing pipeline",
-         "Auto-patch retry loop feeds test failures back to the AI. Circuit "
-         "breakers halt work before damage spreads."),
-        ("Token-aware budget management",
-         "Tracks spend per-project with configurable daily limits and "
-         "peak-hour throttling to optimise cost."),
         ("Multi-source task discovery",
          "Pulls work from manual queues, GitHub issues, and AI-driven code "
          "analysis -- no human prompt needed."),
-        ("Real-time web dashboard",
-         "Live view of daemon status, task progress, token spend, and "
-         "project health from any browser."),
+        ("Real-time web dashboard + REST API",
+         "Live view of daemon status, task progress, and project health "
+         "from any browser, plus an API-key-authenticated controller so a "
+         "hosted front end can drive a TARS instance remotely."),
         ("Discord notifications",
          "Webhook-based alerts for task completion, failures, and budget "
          "warnings. No bot token required."),
         ("Zero-database architecture",
          "All state lives in JSON files. No PostgreSQL, no Redis, no "
          "migrations. Clone and run."),
-        ("Project scaffolding from CLI",
-         "One command sets up a new project config with repo, branch, "
-         "tasks, and notification preferences."),
+        ("Project scaffolding from CLI or API",
+         "One command (or API call) sets up a new project config with "
+         "repo, branch, tasks, and notification preferences -- including "
+         "spinning up a brand-new GitHub repo from a goal description."),
     ])
 
     # -----------------------------------------------------------------------
@@ -456,9 +487,13 @@ def build():
          "Yes", "No", "Partial", "No", "Partial"],
         ["Runs as daemon",
          "Yes", "No", "No", "No", "No"],
-        ["Self-healing",
+        ["Local models, no API key",
          "Yes", "No", "No", "No", "No"],
-        ["Token budgeting",
+        ["Goal-directed sessions",
+         "Yes", "No", "Partial", "No", "Partial"],
+        ["Self-verifying (not self-reported)",
+         "Yes", "No", "No", "No", "No"],
+        ["Self-healing",
          "Yes", "No", "No", "No", "No"],
         ["Task discovery",
          "Yes", "No", "Partial", "No", "No"],
@@ -484,38 +519,43 @@ def build():
     code_block(pdf,
         "+-------------------+     +-------------------+     +------------------+\n"
         "|   TASK SOURCES    |     |    TARS DAEMON     |     |     OUTPUTS      |\n"
+        "|   or a GOAL       |     |    or TARS GO       |     |                  |\n"
         "+-------------------+     +-------------------+     +------------------+\n"
         "|                   |     |                   |     |                  |\n"
         "| Manual Queue   --------->                   |     |  Git Push        |\n"
-        "| GitHub Issues  -------->  Task Prioritiser  |     |  (auto-merge)    |\n"
-        "| Auto-Discovery --------->                   |     |                  |\n"
+        "| GitHub Issues  -------->  Task Prioritiser  |     |  (every task)    |\n"
+        "| Auto-Discovery --------->  or Goal Planner  |     |                  |\n"
+        "| Controller API --------->                   |     |                  |\n"
         "|                   |     +--------+----------+     +--------+---------+\n"
         "+-------------------+              |                          ^         \n"
         "                                   v                          |         \n"
         "                          +--------+----------+               |         \n"
-        "                          |   Claude CLI      |               |         \n"
-        "                          |   (Intelligence)  |               |         \n"
-        "                          |                   |               |         \n"
-        "                          |  Read Code        |               |         \n"
-        "                          |  Write Patches    |               |         \n"
-        "                          |  Run Tests        |               |         \n"
+        "                          | LOCAL OLLAMA MODELS|              |         \n"
+        "                          |  (Intelligence)    |              |         \n"
+        "                          |                    |              |         \n"
+        "                          |  qwen2.5-coder:32b |              |         \n"
+        "                          |   Read/Write Code  |              |         \n"
+        "                          |  deepseek-r1:70b   |              |         \n"
+        "                          |   Plan/Review/Fix  |              |         \n"
         "                          +--------+----------+               |         \n"
         "                                   |                          |         \n"
         "                                   v                          |         \n"
         "                          +--------+----------+               |         \n"
-        "                          |  SAFETY PIPELINE  |               |         \n"
-        "                          |                   +---------------+         \n"
-        "                          |  Test Gate        |                         \n"
-        "                          |  Self-Review Gate |     +------------------+\n"
-        "                          |  Circuit Breaker  +---->|  Discord Notify  |\n"
-        "                          |  Auto-Patch Retry |     +------------------+\n"
+        "                          | VERIFY & REVIEW    |               |         \n"
+        "                          |                    +---------------+         \n"
+        "                          |  Syntax/Test Gate  |                         \n"
+        "                          |  Ground-Truth Rev. |     +------------------+\n"
+        "                          |  Stuck-Loop Detect +---->|  Discord Notify  |\n"
+        "                          |  Circuit Breaker   |     +------------------+\n"
         "                          +-------------------+                         \n"
     )
 
     body_text(pdf,
         "State is stored entirely in JSON files under state/. No external "
         "database is required. Configuration lives in YAML files under "
-        "config/projects/."
+        "config/projects/. The Flask controller (controller/) exposes this "
+        "same pipeline over an authenticated REST API, so a hosted front "
+        "end can drive it remotely."
     )
 
     # -----------------------------------------------------------------------
@@ -541,15 +581,18 @@ def build():
          "is the core proof of concept and it works."),
         ("Self-healing actually recovers",
          "The auto-patch retry loop is not theoretical. When tests fail, "
-         "TARS feeds the error output back to Claude, which generates a "
-         "corrected patch. In practice, roughly 60-70% of first-attempt "
-         "failures are resolved within two retries, saving manual "
-         "intervention."),
-        ("Token budgets prevent runaway spend",
-         "Without guardrails, an autonomous agent with API access is a "
-         "billing liability. TARS's per-project daily limits and "
-         "peak-hour throttling have kept costs predictable across "
-         "multi-day unattended runs."),
+         "TARS feeds the error output back to the local model, which "
+         "generates a corrected patch. In practice, a meaningful share of "
+         "first-attempt failures are resolved within two retries, saving "
+         "manual intervention."),
+        ("Local models eliminate the billing-liability problem entirely",
+         "An autonomous agent with API access and no spend controls is a "
+         "billing liability by construction -- the more it works, the more "
+         "it costs, with no natural ceiling. Running entirely on "
+         "self-hosted Ollama models removes this class of risk outright: "
+         "there is no per-token bill that scales with how long a session "
+         "runs, so a 30-iteration TARS Go session costs the same as a "
+         "5-iteration one -- just time and local compute."),
         ("Zero-database architecture simplified everything",
          "Using JSON state files instead of a database eliminated an "
          "entire class of deployment complexity. There are no migrations, "
@@ -565,26 +608,52 @@ def build():
     subsection(pdf, "Pitfalls")
 
     bold_bullet_list(pdf, [
+        ("A model reporting success is not proof of success",
+         "The clearest lesson from an internal dry run: a local coding "
+         "model can report a task as complete and describe plausible "
+         "file writes and commands that never actually executed, because "
+         "the tool-call format it used wasn't one the agent harness "
+         "recognized. The task's own self-report looked identical whether "
+         "the work happened or not. This is now treated as the default "
+         "assumption, not an edge case -- every layer of TARS Go verifies "
+         "against ground truth (does the code parse, do tests pass) "
+         "rather than trusting a task's own summary."),
+        ("A reviewer that only reads text can be fooled by claims",
+         "In the same dry run, an autonomous session plateaued for four "
+         "iterations because its self-review step was scoring based on a "
+         "file listing and the tasks' own descriptions -- and three "
+         "separate commits claimed to have fixed a problem (a duplicated, "
+         "unfinished GUI implementation) that was still visibly present "
+         "in the repository. The fix was to stop trusting self-reported "
+         "text and feed the reviewer actual command output instead."),
+        ("A non-converging loop won't stop itself unless told to",
+         "The same session re-attempted the identical failing fix across "
+         "three separate iterations with nothing noticing the pattern. "
+         "An autonomous loop needs an explicit repeat-attempt detector -- "
+         "it will not organically recognize that it's stuck."),
         ("Context window limits constrain task complexity",
-         "Large refactors that span many files push against Claude's "
-         "context window. TARS performs best on focused, well-scoped "
-         "tasks. Multi-file architectural changes still require human "
-         "decomposition into smaller units of work."),
+         "Large refactors that span many files push against a local "
+         "model's context window (16K tokens by default). TARS performs "
+         "best on focused, well-scoped tasks. Multi-file architectural "
+         "changes still require human decomposition into smaller units "
+         "of work."),
         ("Test suite quality is the real bottleneck",
          "TARS is only as reliable as the tests it runs against. "
          "Projects with thin or flaky test coverage produce false "
          "positives -- TARS believes its change is correct because "
          "the tests pass, but the tests were not comprehensive enough "
-         "to catch the regression."),
+         "to catch the regression. Verification gates that only check "
+         "syntax face the same limit: syntactically valid code can still "
+         "be semantically broken (wrong imports, mismatched interfaces)."),
         ("AI-generated code can be subtly wrong",
-         "Claude produces syntactically correct, well-structured code "
-         "that passes tests but occasionally introduces logic that is "
-         "plausible rather than correct. The self-review gate catches "
-         "many of these, but not all. Human review of merged PRs "
-         "remains essential."),
+         "Local models produce syntactically correct, well-structured "
+         "code that passes tests but occasionally introduces logic that "
+         "is plausible rather than correct. Verification and self-review "
+         "gates catch many of these, but not all. Human review of merged "
+         "PRs remains essential."),
         ("Daemon stability requires defensive engineering",
-         "Running 24/7 exposes every edge case: network timeouts, API "
-         "rate limits, partial writes to state files, zombie child "
+         "Running 24/7 exposes every edge case: network timeouts, model "
+         "load contention, partial writes to state files, zombie child "
          "processes. Each failure mode required its own mitigation. "
          "Building a reliable daemon is significantly harder than "
          "building a tool that runs once."),
@@ -592,7 +661,7 @@ def build():
          "AI-driven auto-discovery of tasks (TODOs, missing tests, code "
          "smells) produces a high volume of low-priority suggestions. "
          "Without careful filtering and prioritisation, TARS can spend "
-         "its budget on trivial changes while meaningful work sits in "
+         "its time on trivial changes while meaningful work sits in "
          "the queue."),
     ])
 

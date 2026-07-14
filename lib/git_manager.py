@@ -170,6 +170,16 @@ class GitManager:
         if self.work_dir.exists():
             logger.info("Fetching %s", self.repo)
             self._run_git(["fetch", "origin"])
+            # These are TARS's own disposable clones (never a user's working
+            # tree). A task killed mid-flight leaves tracked files modified,
+            # which makes the checkout/pull below abort ("Please move or
+            # remove them before you merge") and bricks every later task on
+            # this project. Discard leftovers; untracked files (venvs, caches)
+            # are kept.
+            status = self._run_git(["status", "--porcelain"])
+            if any(line and not line.startswith("??") for line in status.splitlines()):
+                logger.warning("Discarding leftover changes in %s from a previous run", self.repo)
+                self._run_git(["reset", "--hard", "HEAD"])
         else:
             logger.info("Cloning %s", self.repo)
             subprocess.run(
@@ -253,8 +263,34 @@ class GitManager:
         status = self._run_git(["status", "--porcelain"])
         return bool(status)
 
+    # Vendored/generated dirs the worker must never commit. The model is told
+    # not to, but this stage runs `git add -A` on whatever the workspace holds,
+    # so enforce it here: a single committed node_modules/venv adds hundreds of
+    # thousands of junk lines that poison the repo and every context digest.
+    _NEVER_COMMIT = ("node_modules/", ".venv/", "venv/", "__pycache__/",
+                     "dist/", "build/", "*.pyc", ".pytest_cache/")
+
+    def _ensure_gitignore(self) -> None:
+        path = self.work_dir / ".gitignore"
+        existing = path.read_text().splitlines() if path.exists() else []
+        missing = [p for p in self._NEVER_COMMIT if p not in existing]
+        if missing:
+            path.write_text("\n".join(existing + missing) + "\n")
+
+    def _untrack_vendored(self) -> None:
+        """Untrack _NEVER_COMMIT paths that slipped into the index — .gitignore
+        alone doesn't stop already-tracked files, and git's `**/` pathspec
+        glob silently misses nested dirs, so filter ls-files ourselves."""
+        dirs = {p.rstrip("/") for p in self._NEVER_COMMIT if p.endswith("/")}
+        bad = [f for f in self._run_git(["ls-files"]).splitlines()
+               if f.endswith(".pyc") or dirs.intersection(f.split("/")[:-1])]
+        for i in range(0, len(bad), 500):
+            self._run_git(["rm", "--cached", "-q", "--", *bad[i:i + 500]])
+
     def commit_all(self, message: str) -> str:
-        """Stage all changes and commit."""
+        """Stage all changes and commit (vendored/generated dirs excluded)."""
+        self._ensure_gitignore()
+        self._untrack_vendored()
         self._run_git(["add", "-A"])
         self._run_git(["commit", "-m", message])
         sha = self._run_git(["rev-parse", "HEAD"])

@@ -1,0 +1,32 @@
+repo: dsneed123/stock-signal-scanner
+description: 'Self-hosted stock signal scanner: ingests financial news, runs it through
+  a local LLM analysis engine, surfaces per-ticker prediction cards on a dashboard.
+  Signal surfacing, not investment advice.'
+type: generic
+enabled: true
+git:
+  strategy: direct-main
+  base_branch: main
+  pr_labels:
+  - tars-auto
+  auto_merge: true
+build:
+  type: generic
+  command: python3 -m venv .venv >/dev/null 2>&1 || true; if [ -f requirements.txt
+    ]; then .venv/bin/pip install -q -r requirements.txt; fi; .venv/bin/pip install
+    -q pytest; if [ -f frontend/package.json ] && command -v npm >/dev/null 2>&1;
+    then (cd frontend && npm install --no-audit --no-fund --loglevel=error && npm
+    run build); fi
+test:
+  command: .venv/bin/python -m pytest -q; rc=$?; [ $rc -eq 0 ] || [ $rc -eq 5 ]
+issues:
+  enabled: false
+  labels:
+  - tars
+auto_discover:
+  enabled: false
+  interval: 86400
+  focus_areas: []
+claude:
+  model: sonnet
+  max_turns: 40

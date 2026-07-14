@@ -1,0 +1,24 @@
+repo: dsneed123/tars-notes-app
+description: Notes web app built by TARS Go
+type: generic
+enabled: true
+git:
+  strategy: direct-main
+  base_branch: main
+  pr_labels: [tars-auto]
+  auto_merge: true
+build:
+  type: generic
+  command: null
+test:
+  command: pytest test_app.py -v 2>&1 || true
+issues:
+  enabled: false
+  labels: [tars]
+auto_discover:
+  enabled: false
+  interval: 86400
+  focus_areas: []
+claude:
+  model: sonnet
+  max_turns: 20

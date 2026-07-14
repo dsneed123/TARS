@@ -18,9 +18,10 @@ DEFAULT_PROJECT = {
         "strategy": "branch-pr",
         "base_branch": "main",
         "pr_labels": ["tars-auto"],
-        # When true, TARS merges straight to the base branch with no PR
-        # (overrides `strategy` -> "direct-main"). Exposed as a project toggle.
-        "auto_merge": False,
+        # When true (default), TARS opens a PR and immediately merges it
+        # (squash + delete branch) — overrides `strategy` -> "auto-merge".
+        # Set false on a project to leave PRs open for manual review.
+        "auto_merge": True,
     },
     "build": {
         "type": "generic",
@@ -37,6 +38,16 @@ DEFAULT_PROJECT = {
         "enabled": False,
         "interval": 86400,
         "focus_areas": [],
+    },
+    # Self-improvement loop (lib/improvement_loop.py): each round queues the
+    # next max_queued improvement tasks toward `goal`, waits for them to
+    # drain, then iterates using the outcome history.
+    "self_improve": {
+        "enabled": False,
+        "goal": "",
+        "interval": 3600,
+        "max_queued": 2,
+        "priority": 45,
     },
     "claude": {
         "model": "sonnet",
@@ -89,10 +100,11 @@ def load_project(name: str) -> dict:
     if not raw:
         raise FileNotFoundError(f"Project config not found: {path}")
     cfg = _deep_merge(DEFAULT_PROJECT, raw)
-    # auto_merge toggle: when on, force the no-PR direct-merge strategy so the
-    # worker (which reads git.strategy) commits straight to the base branch.
+    # auto_merge toggle: when on, force the "auto-merge" strategy so the worker
+    # (which reads git.strategy) opens a PR and immediately squash-merges it.
+    # An explicit git.strategy in the project YAML still wins if auto_merge is off.
     if cfg.get("git", {}).get("auto_merge"):
-        cfg["git"]["strategy"] = "direct-main"
+        cfg["git"]["strategy"] = "auto-merge"
     return cfg
 
 

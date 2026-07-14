@@ -1,0 +1,239 @@
+tasks:
+- id: fresh-f8bb69a9
+  title: Scaffold the Project
+  description: Set up the project repository with the necessary directory structure,
+    initialize version control, and set up a basic build setup using Makefile. Include
+    a README.md file with an initial architecture overview.
+  project: stock-signal-scanner
+  priority: 100
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T03:19:26Z'
+- id: fresh-5a5c9062
+  title: Create Configuration Management
+  description: Develop a `config.yaml` file to manage all configuration settings including
+    feed URLs, subreddits, ticker watchlist, Ollama base URL and model tag, token
+    budget, schedule intervals, retention days, server host/port.
+  project: stock-signal-scanner
+  priority: 99
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T03:31:20Z'
+- id: fresh-b653c452
+  title: Set Up Backend with FastAPI
+  description: Initialize a Python backend using FastAPI. Set up basic routing and
+    static file serving for the frontend. Implement CORS support for development purposes.
+  project: stock-signal-scanner
+  priority: 98
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T05:57:10Z'
+- id: fresh-7d384213
+  title: Develop Ingestion Service
+  description: Implement an ingestion service in the backend that includes pluggable
+    fetchers for RSS/Atom feeds, SEC EDGAR filings, Reddit forum threads, and a generic
+    article scraper. Normalize documents to {url, published, outlet, text} format
+    and persist them to SQLite with deduplication by URL hash and near-duplicate title.
+  project: stock-signal-scanner
+  priority: 97
+  status: cancelled
+  source: design-docs
+  user: admin
+  cancelled_at: '2026-07-10T03:23:31.810530+00:00'
+- id: fresh-b3d56abc
+  title: Implement Batcher
+  description: Create a batcher component that selects recent un-analyzed documents
+    from the database, formats them as required for analysis, and chunks batches according
+    to a configurable token budget.
+  project: stock-signal-scanner
+  priority: 96
+  status: cancelled
+  source: design-docs
+  user: admin
+  cancelled_at: '2026-07-10T03:23:32.117737+00:00'
+- id: fresh-bdfabdd6
+  title: Integrate Local Ollama LLM
+  description: Set up integration with local Ollama for running the analysis engine.
+    Use the system prompt verbatim from Appendix A stored in `prompts/analysis_system_prompt.txt`
+    and parse the model's output into structured prediction cards.
+  project: stock-signal-scanner
+  priority: 95
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T07:56:18Z'
+- id: fresh-5afee654
+  title: Enforce Guardrails Programmatically
+  description: Implement guardrail enforcement in code to clamp confidence scores,
+    enforce rubric caps, reject imperative language and price targets, and persist
+    pump-and-dump flags when raised by the model.
+  project: stock-signal-scanner
+  priority: 94
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T08:12:42Z'
+- id: fresh-bd47ffe5
+  title: Design SQLite Storage Schema
+  description: Create an SQLite database schema with tables for sources, batches,
+    runs, cards, and card_sources. Implement create-if-not-exists migrations and a
+    retention/cleanup job for old raw documents based on configurable days.
+  project: stock-signal-scanner
+  priority: 93
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T08:34:47Z'
+- id: fresh-9cb5391c
+  title: Develop Backend REST API Endpoints
+  description: Implement all required FastAPI endpoints including GET /api/cards,
+    GET /api/cards/{id}, GET /api/tickers/{ticker}/history, GET /api/runs, GET /api/sources,
+    POST /api/scan, and GET /api/health.
+  project: stock-signal-scanner
+  priority: 92
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T09:48:49Z'
+- id: fresh-62bd0f34
+  title: Build Frontend with React + Vite
+  description: Create a single-page dashboard using React and Vite. Implement features
+    such as cards grid, card detail view, filters, runs/history page, persistent disclaimer
+    banner, auto-refresh polling, clean dark theme, and responsive layout.
+  project: stock-signal-scanner
+  priority: 91
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T12:41:18Z'
+- id: fresh-c00c22be
+  title: Implement Scheduler and CLI
+  description: 'Develop a background scheduler to handle periodic ingestion and analysis
+    tasks based on intervals specified in `config.yaml`. Create CLI entry points for
+    `scanner ingest`, `scanner scan`, `scanner serve`, and `scanner run` (all-in-one:
+    serve + scheduler).'
+  project: stock-signal-scanner
+  priority: 90
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T13:00:00Z'
+- id: fresh-3ea801a8
+  title: Write Unit Tests
+  description: Develop pytest unit tests to cover card parser functionality, citation
+    resolution, rubric cap enforcement, deduplication, batch chunking, FastAPI endpoint
+    testing with a test client and a fake LLM.
+  project: stock-signal-scanner
+  priority: 89
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T15:52:25Z'
+- id: fresh-5b0ee58d
+  title: Enhance Documentation
+  description: Expand the README.md file to include detailed architecture overview,
+    setup instructions, configuration reference, and screenshots section. Ensure all
+    necessary documentation is clear and comprehensive.
+  project: stock-signal-scanner
+  priority: 88
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T16:00:08Z'
+- id: fresh-be66fd9a
+  title: Containerize Application with Docker
+  description: Create a Dockerfile for the application and docker-compose.yml to manage
+    services including the app and Ollama as an external service. Ensure the containers
+    are properly configured and can be run together seamlessly.
+  project: stock-signal-scanner
+  priority: 87
+  status: completed
+  source: design-docs
+  user: admin
+  completed_at: '2026-07-10T16:12:30Z'
+- id: web-9388adc5
+  title: Browser-based continuous research worker (Playwright)
+  description: "Add a browser-based continuous research worker to the ingestion layer.\
+    \ Use Playwright with headless Chromium to fetch and render JS-heavy news pages\
+    \ that plain HTTP fetchers cannot read, extracting clean article text (title,\
+    \ body, published date, outlet) from the rendered DOM. Add a 'scanner research'\
+    \ CLI mode that runs a continuous loop: cycle through a configurable list of watch\
+    \ URLs and site sections (config.yaml: research.sites, research.cycle_seconds,\
+    \ research.max_pages_per_cycle), fetch anything new, dedupe against already-stored\
+    \ sources, and persist to the sources table so the analysis engine picks them\
+    \ up on the next batch. Respect robots.txt, apply per-domain rate limits and a\
+    \ polite user-agent, and back off on repeated failures. Wire this mode into the\
+    \ scheduler and docker-compose (install Playwright browsers in the Dockerfile),\
+    \ add unit tests for the DOM text extraction with saved HTML fixtures, and update\
+    \ the README to document the continuous browser research mode. The analysis LLM\
+    \ itself must never browse \u2014 it only ever sees the source documents this\
+    \ worker stores."
+  project: stock-signal-scanner
+  task_type: tars-code
+  priority: 60
+  status: cancelled
+  user_id: null
+  survey_task_id: null
+  source: website
+  created_at: '2026-07-10T03:21:59.933818+00:00'
+  cancelled_at: '2026-07-10T03:23:32.440880+00:00'
+- id: web-03c566ef
+  title: 'CORE: purely browser-based continuous research engine'
+  description: "Build the CORE component of this app: a purely browser-based continuous\
+    \ research engine. This is the ONLY ingestion path \u2014 do not add RSS, API,\
+    \ or plain-HTTP fetchers. Use Playwright with headless Chromium to visit, render,\
+    \ and read real web pages, including JS-heavy sites. Implement a continuous research\
+    \ loop (CLI: 'scanner research') that endlessly cycles a configurable watch-list\
+    \ defined in config.yaml under research.sites. Each watch-list entry has: url,\
+    \ outlet name, and a source_type category \u2014 one of 'deals' (business-deal\
+    \ and M&A news sections, press-release pages), 'chatter' (forums and social discussion\
+    \ pages \u2014 what people are saying about tickers), or 'news' (general market\
+    \ and company news pages). For each cycle: render the page, discover new article/thread\
+    \ links, open each new one, extract clean text from the rendered DOM (title, body,\
+    \ published date, outlet), skip anything already stored (dedupe by URL hash and\
+    \ near-duplicate title), and persist to the sources table with its source_type\
+    \ tag and fetched-at timestamp. Politeness is mandatory: respect robots.txt, per-domain\
+    \ rate limits with jitter, a descriptive user-agent, exponential backoff per failing\
+    \ domain, and config caps research.cycle_seconds and research.max_pages_per_cycle.\
+    \ Ship a default watch-list in config.yaml covering all three categories with\
+    \ real example sites. Add unit tests for link discovery and DOM text extraction\
+    \ using saved HTML fixtures (no network in tests). Install Playwright browsers\
+    \ in the Dockerfile. The analysis LLM itself must NEVER browse \u2014 it only\
+    \ sees the documents this engine stores."
+  project: stock-signal-scanner
+  task_type: tars-code
+  priority: 97
+  status: completed
+  user_id: null
+  survey_task_id: null
+  source: website
+  created_at: '2026-07-10T03:23:51.697818+00:00'
+  completed_at: '2026-07-10T06:20:44Z'
+- id: web-2138769c
+  title: Batcher with balanced source mix (anti-hype)
+  description: "Implement the batcher that feeds the analysis engine, with a balanced\
+    \ source mix so the model is informed by public chatter without being unduly influenced\
+    \ by it. Select recent un-analyzed documents from the sources table (configurable\
+    \ window, default 24h) and format each batch EXACTLY as the analysis system prompt\
+    \ expects: <source url=\"...\" published=\"...\" outlet=\"...\">clean text</source>,\
+    \ chunked to a configurable token budget. Balance rules: cap 'chatter'-type documents\
+    \ at a configurable maximum share of each batch (default 40 percent), always include\
+    \ available 'deals' and 'news' documents first, and never emit a batch that is\
+    \ chatter-only unless nothing else exists \u2014 in that case tag the batch social_only=true\
+    \ so downstream guardrails cap confidence at 35 per the rubric. Include each document's\
+    \ outlet and published date accurately in the source tag \u2014 never fabricate\
+    \ metadata. Record which documents went into which batch (batches table) so cards\
+    \ can resolve citations back to stored sources. Unit-test the balancing logic,\
+    \ chunking, and exact tag formatting."
+  project: stock-signal-scanner
+  task_type: tars-code
+  priority: 96
+  status: completed
+  user_id: null
+  survey_task_id: null
+  source: website
+  created_at: '2026-07-10T03:23:51.974431+00:00'
+  completed_at: '2026-07-10T07:41:44Z'

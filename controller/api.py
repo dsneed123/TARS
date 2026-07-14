@@ -80,6 +80,7 @@ TARS_HOME = Path(os.environ.get("TARS_HOME", Path(__file__).resolve().parent.par
 STATE_DIR = TARS_HOME / "state"
 CONFIG_DIR = TARS_HOME / "config"
 QUEUE_FILE = CONFIG_DIR / "queue.yaml"
+LOGS_DIR = TARS_HOME / "logs"
 
 # ---------------------------------------------------------------------------
 # Flask app
@@ -203,13 +204,18 @@ def _write_queue(data: dict):
     tmp.rename(QUEUE_FILE)
 
 
-def _ensure_project_config(project: str) -> str:
+def _ensure_project_config(project: str) -> str | None:
     """
     Resolve an incoming project identifier (short name or owner/repo) to an
-    enabled TARS project config. If no matching config exists, create one with
-    sensible defaults so newly-added website projects are immediately runnable.
+    enabled TARS project config. If no matching config exists AND the input
+    is a real owner/repo, create one with sensible defaults so newly-added
+    website projects are immediately runnable.
 
-    Returns the short name the scheduler will match against.
+    Returns the short name the scheduler will match against, or None if
+    `project` is a bare short name that doesn't match any existing config —
+    that's almost always a typo, and auto-creating a stub with an empty repo
+    would just queue the task under a project that can never build. Callers
+    should treat None as a 400 error back to the caller.
     """
     projects_dir = CONFIG_DIR / "projects"
     projects_dir.mkdir(parents=True, exist_ok=True)
@@ -223,8 +229,11 @@ def _ensure_project_config(project: str) -> str:
         if cfg.get("repo") == project or path.stem == project:
             return path.stem
 
-    short_name = project.split("/", 1)[1] if "/" in project else project
-    repo = project if "/" in project else ""
+    if "/" not in project:
+        return None
+
+    short_name = project.split("/", 1)[1]
+    repo = project
     default_cfg = {
         "repo": repo,
         "description": f"Auto-created from website task for {project}",
@@ -298,11 +307,19 @@ def _validate_task_payload(data: dict) -> str | None:
 def cluster_status():
     """Return cluster status: online workers, current task, queue depth."""
     current_task = _read_json(STATE_DIR / "current_task.json")
-    queue = _read_queue()
-    pending = [t for t in queue.get("tasks", []) if t.get("status") == "pending"]
+    # Count across every per-project queue file, not just the legacy global
+    # queue.yaml — otherwise tasks added via /api/tasks or /api/chat (which
+    # write to config/queues/<project>.yaml) never show up in the queue depth.
+    pending = [t for t in _read_all_tasks() if t.get("status") == "pending"]
     workers = _discover_workers()
     online = [w for w in workers if w.get("status") not in ("offline", "unknown")]
-    active_projects = _read_json(STATE_DIR / "active_projects.json", {"active": []})
+    # "Active" = projects with work actually happening or waiting: the current
+    # task's project plus any project with pending tasks. (state/
+    # active_projects.json is only a legacy Discord-bot filter — nothing
+    # writes it in the normal flow, so it always said "none" mid-build.)
+    active = {t.get("project") for t in pending if t.get("project")}
+    if current_task and current_task.get("project"):
+        active.add(current_task["project"])
 
     return jsonify({
         "status": "online",
@@ -311,7 +328,7 @@ def cluster_status():
         "queue_length": len(pending),
         "workers_online": len(online),
         "workers_total": len(workers),
-        "active_projects": active_projects.get("active", []),
+        "active_projects": sorted(active),
     })
 
 
@@ -411,7 +428,9 @@ def _write_project_config(short: str, repo: str, opts: dict, owner_key_id=None) 
         "test": {"command": opts.get("test") or None},
         "issues": {"enabled": False, "labels": ["tars"]},
         "auto_discover": {"enabled": False, "interval": 86400, "focus_areas": []},
-        "claude": {"model": "sonnet", "max_turns": 20},
+        # 40 turns: every file write costs a turn, so 20 capped tasks at ~8
+        # small files — too few for the milestone-sized tasks the planner emits.
+        "claude": {"model": "sonnet", "max_turns": 40},
     }
     path = PROJECTS_DIR / f"{short}.yaml"
     tmp = path.with_suffix(".tmp")
@@ -443,6 +462,135 @@ def _write_queue_tasks(project: str, tasks: list, append: bool = True) -> None:
     tmp.rename(path)
 
 
+def _read_all_tasks() -> list[dict]:
+    """Merge tasks from every per-project queue (config/queues/*.yaml) plus
+    the legacy global config/queue.yaml, so nothing queued through either
+    /api/chat (mode=task, per-project) or the older /api/tasks (legacy
+    global) goes missing from listings. Per-project entries win on id clash."""
+    tasks = []
+    seen_ids = set()
+    if QUEUES_DIR.exists():
+        for p in sorted(QUEUES_DIR.glob("*.yaml")):
+            try:
+                with open(p) as f:
+                    raw = yaml.safe_load(f) or {}
+            except yaml.YAMLError:
+                continue
+            for t in raw.get("tasks", []) or []:
+                t.setdefault("project", p.stem)
+                tasks.append(t)
+                seen_ids.add(t.get("id"))
+    legacy = _read_queue()
+    for t in legacy.get("tasks", []) or []:
+        if t.get("id") not in seen_ids:
+            tasks.append(t)
+    return tasks
+
+
+def _find_task_file(task_id: str) -> Path | None:
+    """Return the queue file (per-project or legacy) that currently holds
+    task_id, or None if it isn't queued anywhere."""
+    if QUEUES_DIR.exists():
+        for p in sorted(QUEUES_DIR.glob("*.yaml")):
+            try:
+                with open(p) as f:
+                    raw = yaml.safe_load(f) or {}
+            except yaml.YAMLError:
+                continue
+            if any(t.get("id") == task_id for t in raw.get("tasks", []) or []):
+                return p
+    legacy = _read_queue()
+    if any(t.get("id") == task_id for t in legacy.get("tasks", []) or []):
+        return QUEUE_FILE
+    return None
+
+
+def _mutate_task(task_id: str, mutator) -> dict | None:
+    """Find task_id in whichever queue file holds it, apply mutator(task) in
+    place, persist the file, and return the mutated task (or None if not
+    found)."""
+    path = _find_task_file(task_id)
+    if path is None:
+        return None
+    with open(path) as f:
+        raw = yaml.safe_load(f) or {}
+    target = None
+    for t in raw.get("tasks", []) or []:
+        if t.get("id") == task_id:
+            target = t
+            break
+    if target is None:
+        return None
+    mutator(target)
+    tmp = path.with_suffix(".tmp")
+    with open(tmp, "w") as f:
+        yaml.dump(raw, f, default_flow_style=False, sort_keys=False)
+    tmp.rename(path)
+    return target
+
+
+def _clear_pending_tasks(project: str | None = None) -> list[dict]:
+    """Cancel every pending/queued task (optionally scoped to one project)
+    across all queue files. Returns the list of cancelled tasks."""
+    cancelled = []
+    now = datetime.now(timezone.utc).isoformat()
+    files = []
+    if QUEUES_DIR.exists():
+        files.extend(sorted(QUEUES_DIR.glob("*.yaml")))
+    files.append(QUEUE_FILE)
+    for path in files:
+        if project and path.stem != project:
+            continue
+        try:
+            with open(path) as f:
+                raw = yaml.safe_load(f) or {}
+        except (FileNotFoundError, yaml.YAMLError):
+            continue
+        changed = False
+        for t in raw.get("tasks", []) or []:
+            if t.get("status", "pending") in ("pending", "queued"):
+                t["status"] = "cancelled"
+                t["cancelled_at"] = now
+                cancelled.append(t)
+                changed = True
+        if changed:
+            tmp = path.with_suffix(".tmp")
+            with open(tmp, "w") as f:
+                yaml.dump(raw, f, default_flow_style=False, sort_keys=False)
+            tmp.rename(path)
+    return cancelled
+
+
+def _tail_task_log(task_id: str, lines: int = 60) -> tuple[str | None, str]:
+    """Return (log_text, source_filename) for the most recent log file
+    matching task_id, tailed to *lines*. log_text is None if no log exists."""
+    if not LOGS_DIR.exists():
+        return None, ""
+    candidates = sorted(
+        LOGS_DIR.glob(f"task_*{task_id}*.log"),
+        key=lambda p: p.stat().st_mtime,
+    )
+    if not candidates:
+        return None, ""
+    path = candidates[-1]
+    try:
+        with open(path, errors="replace") as f:
+            content = f.readlines()
+    except OSError:
+        return None, ""
+    return "".join(content[-lines:]), path.name
+
+
+def _push_mode(cfg: dict) -> str:
+    """Human name for where finished work lands: main / auto-merge / pr."""
+    git_cfg = cfg.get("git", {}) or {}
+    if git_cfg.get("auto_merge"):
+        return "auto-merge"
+    if git_cfg.get("strategy") == "direct-main":
+        return "main"
+    return "pr"
+
+
 @app.route("/api/projects", methods=["GET"])
 @require_api_key
 def list_projects_route():
@@ -458,13 +606,21 @@ def list_projects_route():
                 continue
             if not _owns_project(ident, p.stem):
                 continue
+            si = cfg.get("self_improve", {}) or {}
             out.append({
                 "name": p.stem,
                 "repo": cfg.get("repo", ""),
                 "enabled": cfg.get("enabled", True),
                 "auto_merge": cfg.get("git", {}).get("auto_merge", False),
+                "push": _push_mode(cfg),
                 "build": cfg.get("build", {}).get("command"),
                 "test": cfg.get("test", {}).get("command"),
+                "self_improve": {
+                    "enabled": bool(si.get("enabled", False)),
+                    "goal": si.get("goal", ""),
+                    "interval": si.get("interval", 3600),
+                    "max_queued": si.get("max_queued", 2),
+                },
             })
     return jsonify({"projects": out})
 
@@ -639,19 +795,101 @@ def project_settings_route(name):
         cfg.setdefault("build", {})["command"] = data["build"] or None
     if "test" in data:
         cfg.setdefault("test", {})["command"] = data["test"] or None
+    if "push" in data:
+        # Where finished work lands: "main" = direct push to the base branch,
+        # "pr" = open a PR and leave it for review. Both imply auto_merge off
+        # (config_loader force-overrides strategy to "auto-merge" otherwise).
+        push = str(data["push"] or "").lower()
+        if push in ("main", "direct", "direct-main"):
+            cfg.setdefault("git", {})["strategy"] = "direct-main"
+            cfg["git"]["auto_merge"] = False
+        elif push in ("pr", "branch", "branch-pr"):
+            cfg.setdefault("git", {})["strategy"] = "branch-pr"
+            cfg["git"]["auto_merge"] = False
+        else:
+            return jsonify({"error": "push must be 'main' or 'pr'"}), 400
+    if isinstance(data.get("self_improve"), dict):
+        si_in = data["self_improve"]
+        si = cfg.setdefault("self_improve", {})
+        if "enabled" in si_in:
+            si["enabled"] = bool(si_in["enabled"])
+        if "goal" in si_in:
+            si["goal"] = str(si_in["goal"] or "")
+        for int_key in ("interval", "max_queued", "priority"):
+            if int_key in si_in:
+                try:
+                    si[int_key] = int(si_in[int_key])
+                except (TypeError, ValueError):
+                    return jsonify({"error": f"self_improve.{int_key} must be an integer"}), 400
     tmp = path.with_suffix(".tmp")
     with open(tmp, "w") as f:
         yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
     tmp.rename(path)
-    return jsonify({"ok": True, "name": name, "auto_merge": cfg.get("git", {}).get("auto_merge", False)})
+    return jsonify({
+        "ok": True, "name": name,
+        "auto_merge": cfg.get("git", {}).get("auto_merge", False),
+        "push": _push_mode(cfg),
+        "self_improve": cfg.get("self_improve", {}),
+    })
+
+
+@app.route("/api/projects/<name>/improve", methods=["POST"])
+@require_api_key
+def improve_run_route(name):
+    """Run one self-improvement round NOW (bypasses enabled/interval gates)
+    and queue the resulting tasks. Blocks while the model analyzes the repo —
+    same latency profile as /discover."""
+    if not _owns_project(g.identity, name):
+        return jsonify({"error": "No access to that project"}), 403
+    if not (PROJECTS_DIR / f"{name}.yaml").exists():
+        return jsonify({"error": "Project not found"}), 404
+    try:
+        from lib.improvement_loop import run_cycle
+        result = run_cycle(name, force=True)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("self-improve run failed for %s: %s", name, e)
+        return jsonify({"error": f"Self-improve round failed: {e}"}), 502
+    if "error" in result:
+        return jsonify({"error": result["error"]}), 502
+    if "skipped" in result:
+        return jsonify({"ok": True, "skipped": result["skipped"], "tasks": []})
+    return jsonify({"ok": True, "tasks": [
+        {"id": t["id"], "title": t["title"], "description": t.get("description", "")}
+        for t in result.get("queued", [])
+    ]})
+
+
+# Default verify commands for fresh (TARS-built) projects, so the worker's
+# build→test→auto-patch phase runs from task 1 instead of being skipped on a
+# null command. Deliberately tolerant of layers that don't exist yet: no
+# requirements.txt / frontend/ is fine, pytest exit 5 (no tests collected)
+# passes — but a real build or test failure blocks the push. Only fresh
+# projects get these; onboarded repos have unknown stacks, so guessing there
+# would just churn the auto-patch loop.
+# Python deps go in a per-repo virtualenv: bare `pip install` dies with PEP
+# 668 "externally-managed-environment" on modern Ubuntu, which the model
+# can't auto-patch its way out of (it's an env problem, not a code problem).
+FRESH_BUILD_CMD = (
+    "python3 -m venv .venv >/dev/null 2>&1 || true; "
+    "if [ -f requirements.txt ]; then .venv/bin/pip install -q -r requirements.txt; fi; "
+    ".venv/bin/pip install -q pytest; "
+    "if [ -f frontend/package.json ] && command -v npm >/dev/null 2>&1; then "
+    "(cd frontend && npm install --no-audit --no-fund --loglevel=error && npm run build); fi"
+)
+FRESH_TEST_CMD = ".venv/bin/python -m pytest -q; rc=$?; [ $rc -eq 0 ] || [ $rc -eq 5 ]"
 
 
 @app.route("/api/projects/fresh", methods=["POST"])
 @require_api_key
 def fresh_project_route():
-    """Create a NEW repo and generate a task list from design docs.
-    Body: {name, design_docs, visibility?, build?, test?, auto_merge?}."""
+    """Create a NEW repo and generate a build-task list from design docs
+    (or, failing that, the description).
+    Body: {name, design_docs?, description?, visibility?, build?, test?, auto_merge?}."""
     data = request.get_json(silent=True) or {}
+    if not data.get("build"):
+        data["build"] = FRESH_BUILD_CMD
+    if not data.get("test"):
+        data["test"] = FRESH_TEST_CMD
     name = re.sub(r"[^\w.-]", "-", (data.get("name") or "").strip())
     docs = (data.get("design_docs") or "").strip()
     if not name:
@@ -668,8 +906,11 @@ def fresh_project_route():
     except GitError as e:
         return jsonify({"error": f"Repo creation failed: {e}"}), 502
     _write_project_config(name, repo, data, owner_key_id=g.identity.get("id"))
-    # Design docs are optional — only generate a task list if they were given.
-    tasks = _tasks_from_docs(name, docs, g.identity.get("user")) if docs else []
+    # Plan build tasks from the design docs, or fall back to the description —
+    # a one-line project idea is enough to get an ordered task list queued so
+    # the daemon starts building without any further input.
+    plan_source = docs or (data.get("description") or "").strip()
+    tasks = _tasks_from_docs(name, plan_source, g.identity.get("user")) if plan_source else []
     # auto_queue defaults True (controller's own SPA). The website passes false
     # and persists tasks itself (as Django Tasks) so it owns the status link.
     if tasks and data.get("auto_queue", True):
@@ -687,10 +928,20 @@ def _tasks_from_docs(project: str, docs: str, user: str) -> list:
     except Exception:  # noqa: BLE001
         return []
     prompt = (
-        "Break the following project design document into a concise, ordered list "
-        "of concrete implementation tasks. Respond ONLY with a JSON array of "
-        '{"title": "...", "description": "..."} objects, most important first.\n\n'
-        "DESIGN DOCUMENT:\n" + docs
+        "Break the following project description into 4-7 SUBSTANTIAL milestone "
+        "tasks that together build the project from scratch. Each task must be a "
+        "complete vertical slice of the product — a whole feature or subsystem "
+        "spanning several files and a few hundred lines of real code — because "
+        "every task pays a large fixed pipeline cost regardless of size. NEVER "
+        "make a separate task for configuration, documentation, tests, or "
+        "containerization: fold those into the feature task they belong to "
+        "(each feature ships WITH its config, its tests, and its docs). "
+        "The first task must scaffold the project AND deliver the first working "
+        "feature end-to-end, not an empty skeleton. Each description should "
+        "list the concrete modules/files to create and what each must do. "
+        'Respond ONLY with a JSON array of {"title": "...", "description": "..."} '
+        "objects, most important first.\n\n"
+        "PROJECT DESCRIPTION:\n" + docs
     )
     try:
         res = OllamaRunner().run(prompt, role="plan", max_turns=1)
@@ -817,11 +1068,31 @@ def chat_route():
         return jsonify({"error": "message is required"}), 400
 
     if data.get("mode") == "task":
-        project = (data.get("project") or "").strip()
-        if not project:
+        project_in = (data.get("project") or "").strip()
+        if not project_in:
             return jsonify({"error": "Select a project to queue a task"}), 400
-        if not _owns_project(g.identity, project):
+        if not _owns_project(g.identity, project_in):
             return jsonify({"error": "No access to that project"}), 403
+        # Resolve to a real, enabled project config the same way POST
+        # /api/tasks does — otherwise a typo or a disabled project (e.g. the
+        # shipped example-project template) silently queues a task that the
+        # daemon will never pick up.
+        project = _ensure_project_config(project_in)
+        if project is None:
+            return jsonify({
+                "error": f"Unknown project '{project_in}' — add it first with "
+                         f"`tars projects add <owner/repo>`."
+            }), 400
+        try:
+            with open(PROJECTS_DIR / f"{project}.yaml") as f:
+                proj_cfg = yaml.safe_load(f) or {}
+        except (OSError, yaml.YAMLError):
+            proj_cfg = {}
+        if not proj_cfg.get("enabled", True):
+            return jsonify({
+                "error": f"Project '{project}' is disabled — enable it with "
+                         f"`tars projects settings {project} --enabled` first."
+            }), 400
         task = {
             "id": "chat-" + uuid.uuid4().hex[:8],
             "title": message.split("\n")[0][:80],
@@ -1086,9 +1357,9 @@ def list_workers():
 @app.route("/api/tasks", methods=["GET"])
 @require_api_key
 def list_tasks():
-    """List all queued / active tasks from queue.yaml and current_task.json."""
-    queue = _read_queue()
-    tasks = queue.get("tasks", [])
+    """List all queued / active tasks from every project's queue file
+    (config/queues/*.yaml), plus current_task.json for what's in flight."""
+    tasks = _read_all_tasks()
     current = _read_json(STATE_DIR / "current_task.json")
 
     # Optionally filter by status or project
@@ -1110,7 +1381,9 @@ def list_tasks():
 @require_api_key
 def create_task():
     """
-    Accept a new task from the website and append it to queue.yaml.
+    Accept a new task and append it to its project's queue file
+    (config/queues/<project>.yaml) — the same file /api/chat (mode=task)
+    writes to, and the one the worker daemon actually reads from.
 
     Expected JSON body:
         project      (str, required)  — repo / project name
@@ -1125,10 +1398,26 @@ def create_task():
     if err:
         return jsonify({"error": err}), 400
 
+    project = _ensure_project_config(data["project"])
+    if project is None:
+        return jsonify({
+            "error": f"Unknown project '{data['project']}' — add it first with "
+                     f"`tars projects add <owner/repo>`."
+        }), 400
+    try:
+        with open(PROJECTS_DIR / f"{project}.yaml") as f:
+            proj_cfg = yaml.safe_load(f) or {}
+    except (OSError, yaml.YAMLError):
+        proj_cfg = {}
+    if not proj_cfg.get("enabled", True):
+        return jsonify({
+            "error": f"Project '{project}' is disabled — enable it with "
+                     f"`tars projects settings {project} --enabled` first."
+        }), 400
+
     task_id = f"web-{uuid.uuid4().hex[:8]}"
     title = data.get("title") or data["description"][:80]
     priority = data.get("priority", 50)
-    project = _ensure_project_config(data["project"])
     survey_task_id = data.get("survey_task_id")
 
     task = {
@@ -1145,14 +1434,7 @@ def create_task():
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    # Append to queue.yaml
-    queue = _read_queue()
-    queue["tasks"].append(task)
-
-    # Keep tasks sorted by priority descending so TARS picks highest first.
-    queue["tasks"].sort(key=lambda t: t.get("priority", 0), reverse=True)
-
-    _write_queue(queue)
+    _write_queue_tasks(project, [task], append=True)
 
     # Tell the website the task is now queued on the brain.
     _notify_django(survey_task_id, "queued")
@@ -1169,27 +1451,58 @@ def cancel_task(task_id: str):
     Cannot cancel a task that is already in-progress (that would require
     killing the Claude subprocess, which is handled by the daemon).
     """
-    queue = _read_queue()
-    target = None
-    for t in queue["tasks"]:
-        if t.get("id") == task_id:
-            target = t
-            break
-
-    if target is None:
+    path = _find_task_file(task_id)
+    if path is None:
         return jsonify({"error": f"Task {task_id} not found"}), 404
 
-    if target.get("status") not in ("pending", "queued"):
+    with open(path) as f:
+        raw = yaml.safe_load(f) or {}
+    current_status = next(
+        (t.get("status") for t in raw.get("tasks", []) or [] if t.get("id") == task_id),
+        None,
+    )
+    if current_status not in ("pending", "queued"):
         return jsonify({
-            "error": f"Cannot cancel task in status '{target.get('status')}'. "
+            "error": f"Cannot cancel task in status '{current_status}'. "
                      "Only pending or queued tasks can be cancelled."
         }), 409
 
-    target["status"] = "cancelled"
-    target["cancelled_at"] = datetime.now(timezone.utc).isoformat()
-    _write_queue(queue)
+    def _cancel(t: dict) -> None:
+        t["status"] = "cancelled"
+        t["cancelled_at"] = datetime.now(timezone.utc).isoformat()
 
+    target = _mutate_task(task_id, _cancel)
     return jsonify({"task": target})
+
+
+@app.route("/api/tasks/clear", methods=["POST"])
+@require_api_key
+def clear_tasks():
+    """Bulk-cancel every pending/queued task. Body: {project?} to scope to
+    one project's queue instead of all of them."""
+    data = request.get_json(silent=True) or {}
+    project = (data.get("project") or "").strip() or None
+    if project and not _owns_project(g.identity, project):
+        return jsonify({"error": "No access to that project"}), 403
+    cancelled = _clear_pending_tasks(project)
+    logger.info("Cleared %d pending task(s)%s by %s", len(cancelled),
+                f" on {project}" if project else "", g.identity.get("user"))
+    return jsonify({"cancelled": cancelled, "count": len(cancelled)})
+
+
+@app.route("/api/tasks/<task_id>/log", methods=["GET"])
+@require_api_key
+def task_log(task_id: str):
+    """Tail the worker's log file for task_id. Query param: lines (default
+    60, max 1000)."""
+    try:
+        lines = min(max(int(request.args.get("lines", 60)), 1), 1000)
+    except ValueError:
+        lines = 60
+    text, filename = _tail_task_log(task_id, lines)
+    if text is None:
+        return jsonify({"error": f"No log found for task {task_id}"}), 404
+    return jsonify({"task_id": task_id, "file": filename, "log": text})
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,2684 @@
+tasks:
+- id: chat-ff28d0c7
+  title: write unit tests for it
+  description: write unit tests for it
+  project: crypto-trading-bot
+  priority: 50
+  status: failed
+  source: chat
+  user: admin
+  failed_at: '2026-07-08T03:41:39Z'
+- id: chat-553ed778
+  title: write unit tests
+  description: write unit tests
+  project: crypto-trading-bot
+  priority: 50
+  status: failed
+  source: chat
+  user: admin
+  failed_at: '2026-07-08T03:44:09Z'
+- id: web-537594b2
+  title: test task queueing from cli debug
+  description: test task queueing from cli debug
+  project: crypto-trading-bot
+  task_type: tars-code
+  priority: 77
+  status: completed
+  user_id: null
+  survey_task_id: null
+  source: website
+  created_at: '2026-07-08T00:01:25.671718+00:00'
+  completed_at: '2026-07-08T00:47:35Z'
+- id: chat-924fd894
+  title: please add a health-check endpoint
+  description: please add a health-check endpoint
+  project: crypto-trading-bot
+  priority: 50
+  status: cancelled
+  source: chat
+  user: admin
+  cancelled_at: '2026-07-08T00:23:03.250561+00:00'
+- id: chat-bcb4a7a8
+  title: whats currently being worked on
+  description: whats currently being worked on
+  project: crypto-trading-bot
+  priority: 50
+  status: cancelled
+  source: chat
+  user: admin
+  cancelled_at: '2026-07-08T00:32:14.142896+00:00'
+- id: chat-3b457cd2
+  title: add input validation to the order form
+  description: add input validation to the order form
+  project: crypto-trading-bot
+  priority: 50
+  status: cancelled
+  source: chat
+  user: admin
+  cancelled_at: '2026-07-08T00:36:18.153009+00:00'
+- id: chat-b4269335
+  title: hi
+  description: hi
+  project: crypto-trading-bot
+  priority: 50
+  status: failed
+  source: chat
+  user: admin
+  failed_at: '2026-07-08T03:46:39Z'
+- id: chat-c5d85d97
+  title: hi
+  description: hi
+  project: crypto-trading-bot
+  priority: 50
+  status: cancelled
+  source: chat
+  user: admin
+  cancelled_at: '2026-07-08T00:36:18.111098+00:00'
+- id: chat-9039145a
+  title: add unit tests
+  description: add unit tests
+  project: crypto-trading-bot
+  priority: 50
+  status: cancelled
+  source: chat
+  user: admin
+  cancelled_at: '2026-07-08T00:39:28.194655+00:00'
+- id: chat-d77c9644
+  title: add input validation to the order form
+  description: add input validation to the order form
+  project: crypto-trading-bot
+  priority: 50
+  status: cancelled
+  source: chat
+  user: admin
+  cancelled_at: '2026-07-08T00:39:28.223184+00:00'
+- id: chat-92f8563d
+  title: work on adding unit tests so it works well
+  description: work on adding unit tests so it works well
+  project: crypto-trading-bot
+  priority: 50
+  status: failed
+  source: chat
+  user: admin
+  failed_at: '2026-07-08T03:49:09Z'
+- id: chat-2d8fe0a3
+  title: /taskS
+  description: /taskS
+  project: crypto-trading-bot
+  priority: 50
+  status: failed
+  source: chat
+  user: admin
+  failed_at: '2026-07-08T03:51:39Z'
+- id: imp-cd53c465
+  title: Implement a simple moving average crossover strategy
+  description: Develop and integrate a basic moving average crossover trading strategy
+    in the src/strategy/moving_average_crossover.py file. This will serve as a foundational
+    strategy for the bot to execute trades based on historical price data without
+    requiring external API keys. Ensure that this strategy is tested with historical
+    data using the backtesting framework in tests/backtester.py.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: Autonomous cryptocurrency trading bot with GUI dashboard, no external API
+    keys required
+  created_at: '2026-07-08T23:27:03Z'
+  completed_at: '2026-07-09T00:56:49Z'
+- id: imp-3f37f5f3
+  title: Implement basic risk management rules in the trading engine
+  description: Add basic risk management features such as position sizing and stop-loss
+    limits to the trading engine. This will help ensure that the bot can manage its
+    risk effectively without relying on external API keys for real-time data. Modify
+    the `trading_engine.py` file to include these new rules, and update the `risk_management.py`
+    file to define the logic for these rules.
+  project: crypto-trading-bot
+  priority: 45
+  status: cancelled
+  source: self-improve
+  goal: Autonomous cryptocurrency trading bot with GUI dashboard, no external API
+    keys required
+  created_at: '2026-07-09T00:57:37Z'
+  cancelled_at: '2026-07-09T02:44:43.734197+00:00'
+- id: web-a26420d3
+  title: Make the trading bot backend runnable end-to-end
+  description: "The project does not run at all: main.py does 'from backend import\
+    \ TradingStrategy' and 'from config import Config' but those modules live in src/,\
+    \ and main.py uses QMainWindow without importing it. Fix the wiring so the app\
+    \ actually starts: (1) consolidate the duplicate entry points (root main.py vs\
+    \ src/main.py) into one root main.py; (2) make imports consistent with the src/\
+    \ layout (import from src.backend etc., or add sys.path handling); (3) IMPORTANT:\
+    \ PyQt5 CANNOT be installed on this machine (no ARM64 wheels) \u2014 make the\
+    \ GUI optional behind a --gui flag and never import PyQt5 at module top-level,\
+    \ so 'python3 main.py --mode backtest' runs fully headless with only ccxt installed;\
+    \ (4) ensure the backend modules (src/backend.py, src/trading_engine.py, src/strategy.py,\
+    \ src/risk_management.py) import cleanly and a headless backtest/paper run executes\
+    \ end-to-end. Verify with: venv/bin/python -c \"import sys; sys.path.insert(0,'src');\
+    \ import backend, trading_engine, strategy, risk_management\" and a short 'python3\
+    \ main.py --mode backtest' smoke run."
+  project: crypto-trading-bot
+  task_type: tars-code
+  priority: 90
+  status: completed
+  user_id: null
+  survey_task_id: null
+  source: website
+  created_at: '2026-07-09T02:42:02.473369+00:00'
+  completed_at: '2026-07-09T03:08:32Z'
+- id: imp-3671359b
+  title: Optimize historical data loading in backtest mode
+  description: Improve the efficiency of loading historical data for backtesting by
+    using pandas for faster CSV reading and processing. Modify `src/backtest/backtester.py`
+    to utilize pandas for loading and handling historical data files. Verify the improvement
+    by comparing load times before and after the change.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T02:51:34Z'
+  completed_at: '2026-07-09T03:18:40Z'
+- id: imp-8ef75cb8
+  title: Implement logging for trading engine actions
+  description: Add detailed logging to `src/trading_engine.py` to track key actions
+    such as order placements, cancellations, and strategy executions. Use Python's
+    built-in logging module to ensure logs are timestamped and configurable via the
+    configuration file. Verify by running a backtest or live simulation and checking
+    the generated log files.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T02:51:34Z'
+  completed_at: '2026-07-09T04:48:39Z'
+- id: imp-611d3ebe
+  title: Refactor strategy initialization to use configuration
+  description: Modify `src/strategy/__init__.py` and related strategy files to initialize
+    strategies using parameters from the configuration file (`config/config.json`).
+    This will allow for more flexible strategy configurations without code changes.
+    Verify by updating the configuration file with different strategy parameters and
+    ensuring they are correctly applied during backtesting or live trading.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T02:51:34Z'
+  completed_at: '2026-07-09T05:00:20Z'
+- id: web-c9592c55
+  title: Wire a concrete strategy so main.py actually runs
+  description: "main.py now imports cleanly but crashes at runtime: 'TypeError: Can't\
+    \ instantiate abstract class TradingStrategy without an implementation for abstract\
+    \ method generate_signals' (main.py line 18: strategy = TradingStrategy(config,\
+    \ risk_manager)). Fix: instantiate a concrete strategy instead \u2014 the repo\
+    \ already has a Moving Average Crossover strategy (src/strategy/ and/or src/strategy.py;\
+    \ also resolve that module-vs-package duplication if it still exists). Make 'venv/bin/python\
+    \ main.py --mode backtest' run end-to-end without crashing: load config, build\
+    \ the concrete strategy, run a short backtest on sample/offline data (do NOT require\
+    \ network or API keys for backtest mode), and print a result summary. Verify by\
+    \ actually running: timeout 60 venv/bin/python main.py --mode backtest"
+  project: crypto-trading-bot
+  task_type: tars-code
+  priority: 85
+  status: completed
+  user_id: null
+  survey_task_id: null
+  source: website
+  created_at: '2026-07-09T03:09:53.139436+00:00'
+  completed_at: '2026-07-09T03:41:16Z'
+- id: web-f952a748
+  title: Add .gitignore and untrack caches
+  description: "Commits are bloated because build artifacts are tracked in git. Add\
+    \ a proper Python .gitignore (__pycache__/, *.pyc, venv/, .env, .pytest_cache/,\
+    \ *.egg-info) and untrack the already-committed junk with 'git rm -r --cached'\
+    \ for every __pycache__ directory, .pyc file, .pytest_cache and any committed\
+    \ venv files \u2014 WITHOUT deleting them from disk. Keep the commit to exactly\
+    \ this hygiene change: the .gitignore file plus the untracking. Verify with 'git\
+    \ status --porcelain' showing no cache files tracked and 'git ls-files | grep\
+    \ -c __pycache__' returning 0."
+  project: crypto-trading-bot
+  task_type: tars-code
+  priority: 80
+  status: completed
+  user_id: null
+  survey_task_id: null
+  source: website
+  created_at: '2026-07-09T03:14:23.254528+00:00'
+  completed_at: '2026-07-09T03:47:37Z'
+- id: web-177764ae
+  title: Fix config package so importing main works
+  description: "main.py still crashes at import time: 'ImportError: cannot import\
+    \ name Config from config.config' \u2014 config/__init__.py line 1 does 'from\
+    \ .config import Config' but config/config.py defines no Config class. Reconcile\
+    \ the config layer: there are config/config_loader.py, config/config_manager.py,\
+    \ config/config_schema.py, a load_config function, and main.py wants a Config\
+    \ class \u2014 consolidate to ONE clear config API in the config package, define\
+    \ the Config class (or switch main.py to the load_config function consistently),\
+    \ and delete/stop referencing the leftovers. Keep the change small and commit\
+    \ incrementally. Verify with: venv/bin/python -c 'import main' AND timeout 60\
+    \ venv/bin/python main.py --mode backtest (must run offline without network or\
+    \ API keys)."
+  project: crypto-trading-bot
+  task_type: tars-code
+  priority: 85
+  status: completed
+  user_id: null
+  survey_task_id: null
+  source: website
+  created_at: '2026-07-09T03:42:41.981571+00:00'
+  completed_at: '2026-07-09T03:57:44Z'
+- id: imp-c7de677e
+  title: Add stop-loss handling to the order engine
+  description: Implement stop-loss functionality in the TradingEngine class. This
+    involves modifying the run_trading_logic method to include a check for price drops
+    and executing sell orders if the price falls below a certain threshold. Verify
+    by running backtests and ensuring that stop-loss orders are triggered correctly.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T05:01:33Z'
+  completed_at: '2026-07-09T05:33:18Z'
+- id: imp-bf55310c
+  title: Add real-time market data integration test
+  description: Implement an integration test in `tests/integration/test_market_data_integration.py`
+    to verify that the trading engine can fetch and process real-time market data
+    correctly. Use a mock exchange API if necessary for testing purposes. Verify by
+    running the test suite and ensuring it passes.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T06:03:40Z'
+  completed_at: '2026-07-09T06:48:24Z'
+- id: imp-c3439063
+  title: Integrate Trading Engine with Different Modes
+  description: Modify main.py to correctly initialize and run the trading engine in
+    live, paper, and backtest modes. Ensure that the correct strategy and risk management
+    are applied based on the mode. Verify by running the bot in each mode and checking
+    the console output for expected behavior.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T07:05:46Z'
+  completed_at: '2026-07-09T07:30:18Z'
+- id: imp-08ca9a18
+  title: Refactor Configuration Management to Use Environment Variables
+  description: Update config/config.json and src/config.py to read sensitive data
+    from the .env file. Ensure that all necessary environment variables are loaded
+    correctly. Verify by checking if the bot can access API keys and other settings
+    without hardcoding them.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T07:05:46Z'
+  completed_at: '2026-07-09T07:41:44Z'
+- id: imp-2d7e4194
+  title: Implement Sell Logic in Trading Engine
+  description: Add sell logic to the trading engine based on moving average crossover
+    strategy. Ensure that both buy and sell signals are handled correctly. Verify
+    by running a backtest with historical data and checking if trades are executed
+    as expected.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T07:05:46Z'
+  completed_at: '2026-07-09T09:15:03Z'
+- id: imp-f30b47db
+  title: Add support for multiple trading strategies
+  description: Extend the bot to support multiple trading strategies by modifying
+    `main.py` and `src/trading_engine.py`. Allow users to specify a strategy in the
+    configuration file. Verify the implementation by running backtests with different
+    strategies.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T09:16:19Z'
+  completed_at: '2026-07-09T09:31:54Z'
+- id: imp-1e1c172a
+  title: Integrate GUI with Trading Engine
+  description: Modify `src/main.py` and `gui/main.py` to integrate the GUI with the
+    trading engine. Ensure that the GUI can start, stop, and change modes of the trading
+    engine. Verify by running the GUI and checking if it interacts correctly with
+    the trading engine.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T10:18:41Z'
+  completed_at: '2026-07-09T10:35:05Z'
+- id: imp-cf4964b0
+  title: Add Sell Logic to Trading Engine
+  description: Implement sell logic in `src/backend.py` and ensure it works correctly
+    for all modes. Verify by running backtest mode and checking if the bot sells at
+    the correct times.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T10:18:41Z'
+  completed_at: '2026-07-09T10:51:51Z'
+- id: imp-c83081e7
+  title: Enhance logging for better traceability
+  description: Implement a more robust logging system using Python's `logging` module.
+    Configure different log levels and output formats in `config/config.json`. Modify
+    relevant files to use the new logging setup, such as `src/trading_engine.py`,
+    `src/strategy/moving_average_crossover.py`, and `src/risk_management.py`. Verify
+    by checking the logs for detailed and structured information.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T11:20:18Z'
+  completed_at: '2026-07-09T11:30:03Z'
+- id: imp-6d15f8f6
+  title: Add support for multiple trading strategies dynamically
+  description: Modify `main.py` to dynamically load and initialize different trading
+    strategies based on the configuration. Update `config/config.json` to include
+    a list of available strategies. Verify by running the bot with different strategies
+    specified in the config file.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T11:20:18Z'
+  completed_at: '2026-07-09T11:43:38Z'
+- id: imp-fe6275aa
+  title: Optimize moving average calculation in run_trading_logic
+  description: Replace the current simple sum approach with a more efficient method
+    for calculating moving averages, such as using numpy's rolling window functions.
+    This will reduce computational overhead, especially for large datasets. Modify
+    the `run_trading_logic` method in `src/backend.py`. Verify the improvement by
+    comparing execution times before and after the change.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T12:22:17Z'
+  completed_at: '2026-07-09T12:59:54Z'
+- id: imp-4ab2c455
+  title: Add logging for strategy generation signals
+  description: Enhance logging to include detailed logs of generated trade signals
+    from each strategy. Modify the `generate_signal` method in `src/strategy/base_strategy.py`.
+    Verify that logs are correctly recorded and contain relevant information.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T12:22:17Z'
+  completed_at: '2026-07-09T13:09:53Z'
+- id: imp-dd7c3010
+  title: Refactor strategy configuration loading
+  description: Refactor the strategy configuration loading process to use a more structured
+    approach, such as using data classes or namedtuples for better type safety and
+    readability. Modify `config/config_loader.py` and related files. Verify that configurations
+    are loaded correctly and that the bot functions as expected.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T12:22:17Z'
+  completed_at: '2026-07-09T13:15:51Z'
+- id: imp-caea3809
+  title: Optimize Market Data Fetching
+  description: Optimize the market data fetching process by reducing API calls and
+    caching recent data. Modify `src/market_data_fetcher.py` to implement a simple
+    in-memory cache that stores recently fetched OHLCV data for a specified period
+    (e.g., 1 hour). This will reduce the number of API calls made to the exchange,
+    improving performance and efficiency.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T13:23:52Z'
+  completed_at: '2026-07-09T13:34:03Z'
+- id: imp-fbdd6370
+  title: Implement Real-Time Data Processing Optimization
+  description: Optimize real-time data processing by using a more efficient data structure
+    for storing and updating market data. Modify `src/trading_engine.py` to use a
+    deque from the collections module for storing recent OHLCV data, which will allow
+    for faster appends and pops compared to lists.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T13:23:52Z'
+  completed_at: '2026-07-09T13:45:24Z'
+- id: imp-66e6e367
+  title: Enhance GUI Responsiveness
+  description: Improve the responsiveness of the GUI by reducing the frequency of
+    label updates and optimizing data handling. Modify `gui/main.py` to update the
+    status label every 5 seconds instead of every second, and ensure that data processing
+    is done in a separate thread to avoid blocking the main UI thread.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T13:23:52Z'
+  completed_at: '2026-07-09T14:00:17Z'
+- id: imp-22c15614
+  title: Optimize real-time data fetching
+  description: Optimize the `fetch_market_data` method in `src/market_data_fetcher.py`
+    to reduce latency and improve performance. Use asynchronous calls with aiohttp
+    or similar libraries to fetch market data concurrently. Verify the improvement
+    by comparing execution times before and after the change.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T14:25:35Z'
+  completed_at: '2026-07-09T15:26:11Z'
+- id: imp-2be528e9
+  title: Add support for dynamic strategy loading
+  description: Modify `src/trading_engine.py` to dynamically load trading strategies
+    from a configuration file. Implement a function that reads the strategy configuration
+    and initializes the corresponding strategy class. Verify by adding a new strategy
+    in the config and ensuring it is loaded correctly.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T14:25:35Z'
+  completed_at: '2026-07-09T15:42:37Z'
+- id: imp-4a1949ca
+  title: Enhance logging for real-time data processing
+  description: Add detailed logging to the `fetch_market_data` method in `src/market_data_fetcher.py`
+    to capture timestamps and any errors during data fetching. Verify by running the
+    bot in live mode and checking the logs for accurate and comprehensive information.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T14:25:35Z'
+  completed_at: '2026-07-09T16:05:23Z'
+- id: imp-91c39b67
+  title: Add Error Handling for Market Data Fetching
+  description: Enhance error handling in `src/market_data_fetcher.py` to manage network
+    issues and API errors more gracefully. Implement retry logic with exponential
+    backoff for transient failures. Verify the improvement by simulating network disruptions
+    and ensuring that the bot can recover and continue fetching data.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T16:06:24Z'
+  completed_at: '2026-07-09T16:23:06Z'
+- id: imp-4db147d7
+  title: Optimize Market Data Fetching by Caching Recent Data
+  description: Implement a caching mechanism in the MarketDataFetcher class to store
+    recently fetched market data. This will reduce redundant API calls and improve
+    performance. Modify src/backend/market_data_fetcher.py to include a cache that
+    stores the last N data points. Use an LRU (Least Recently Used) cache for efficient
+    storage and retrieval. Verify the improvement by running tests/integration/test_market_data_fetcher_integration.py
+    and observing reduced API call counts.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T17:08:13Z'
+  completed_at: '2026-07-09T18:03:12Z'
+- id: imp-b6f0205c
+  title: Optimize market data fetching by reducing network calls
+  description: Improve the efficiency of the market data fetching process in src/market_data_fetcher.py
+    by implementing a caching mechanism for recent market data. This will reduce the
+    number of network calls and improve performance. The agent can verify this improvement
+    by running tests that measure the reduction in network requests and observing
+    faster response times.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T18:08:59Z'
+  completed_at: '2026-07-09T18:25:45Z'
+- id: imp-f7c2dd19
+  title: Optimize Market Data Fetching by Implementing Exponential Backoff
+  description: Implement an exponential backoff mechanism in the `MarketDataFetcher`
+    class to handle network failures more gracefully and reduce unnecessary retries.
+    This will improve the robustness of market data fetching. Verify the improvement
+    by running integration tests that simulate network failures.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T19:11:22Z'
+  completed_at: '2026-07-09T19:21:59Z'
+- id: imp-082c37a7
+  title: Add Detailed Logging for Strategy Execution
+  description: Enhance the logging in the `TradingEngine` and strategy classes to
+    include detailed logs of strategy execution. This will help in debugging and monitoring
+    the bot's performance. Verify by checking the log output during a backtest run.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T19:11:22Z'
+  completed_at: '2026-07-09T20:56:51Z'
+- id: imp-eaf92ada
+  title: Improve GUI Responsiveness by Reducing Update Frequency
+  description: Reduce the frequency of UI updates in the `CryptoTradingBotGUI` class
+    to improve responsiveness. This can be done by increasing the interval at which
+    the status and trading data labels are updated. Verify the improvement by observing
+    the GUI performance during a live or paper trade.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T19:11:22Z'
+  completed_at: '2026-07-09T21:14:15Z'
+- id: imp-8295fc6e
+  title: Optimize Market Data Fetching by Reducing Cache Expiration Time
+  description: Reduce the cache expiration time in `config/config.json` to improve
+    performance by keeping data fresh without excessive network calls. Modify the
+    `CacheManager` class in `src/cache_manager.py` to handle shorter expiration times
+    efficiently. Verify the improvement by running integration tests in `tests/integration/test_market_data_fetcher_integration.py`
+    and observing reduced network call frequency.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T21:15:19Z'
+  completed_at: '2026-07-09T21:44:43Z'
+- id: imp-ee6d3597
+  title: Implement Asynchronous Data Fetching in MarketDataFetcher
+  description: Modify the `MarketDataFetcher` class in `src/market_data_fetcher.py`
+    to use asynchronous calls for fetching market data. This will improve performance
+    by allowing non-blocking network operations. Verify the implementation by running
+    integration tests in `tests/integration/test_market_data_fetcher_integration.py`
+    and observing improved response times.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T21:15:19Z'
+  completed_at: '2026-07-09T22:07:32Z'
+- id: imp-deaa5577
+  title: Enhance Error Handling for Strategy Execution
+  description: Add comprehensive error handling in the `run_trading_logic` method
+    of `TradingEngine` in `src/trading_engine.py`. Ensure that strategy execution
+    can gracefully handle exceptions and log detailed error messages. Verify the implementation
+    by running unit tests in `tests/unit/test_unit_trading_engine.py` and checking
+    for proper error logging.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T21:15:19Z'
+  completed_at: '2026-07-09T22:27:23Z'
+- id: imp-c62d5345
+  title: Add command-line argument parsing for mode and data file
+  description: Modify `main.py` to use `argparse` for parsing command-line arguments
+    for trading mode (`--mode`) and historical data file (`--data-file`). This will
+    allow the user to specify these parameters when running the script. Verify by
+    running the script with different modes and data files and ensuring it behaves
+    as expected.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T22:28:19Z'
+  completed_at: '2026-07-09T22:34:39Z'
+- id: imp-19e219c3
+  title: Refactor configuration loading for better modularity
+  description: Refactor `config/config_loader.py` to handle the loading of configuration
+    settings in a more modular way. This could involve creating separate functions
+    or classes for different types of configurations (e.g., trading, logging). Verify
+    by ensuring that all necessary configurations are loaded correctly and used throughout
+    the application.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T22:28:19Z'
+  completed_at: '2026-07-09T22:40:03Z'
+- id: imp-24e136ce
+  title: Implement caching for market data to reduce network calls
+  description: Enhance `src/market_data_fetcher.py` to implement a simple caching
+    mechanism that stores recently fetched market data. This will help in reducing
+    the number of network calls and improve performance. Verify by checking the logs
+    or adding metrics to ensure that fewer network requests are made for frequently
+    requested data.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T22:28:19Z'
+  completed_at: '2026-07-09T22:51:51Z'
+- id: imp-2c4cf5a4
+  title: Optimize Market Data Fetching by Implementing Batch Requests
+  description: Implement batch requests for market data fetching to reduce the number
+    of API calls and improve efficiency. Modify `src/backend/market_data_fetcher.py`
+    to support batch requests. Verify the improvement by comparing the number of API
+    calls before and after the change using integration tests in `tests/integration/test_market_data_fetcher_integration.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T23:30:28Z'
+  completed_at: '2026-07-10T00:44:37Z'
+- id: imp-4dcd9b70
+  title: Enhance Logging for Backtest Mode
+  description: Add detailed logging for backtest mode to help with debugging and analysis.
+    Modify `src/backtest/backtester.py` to include additional logging statements.
+    Verify the implementation by checking the logs generated during a backtest run.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-09T23:30:28Z'
+  completed_at: '2026-07-10T01:12:08Z'
+- id: imp-9d18a7fa
+  title: Optimize Market Data Fetching by Implementing Rate Limiting
+  description: Implement rate limiting in the `MarketDataFetcher` class to prevent
+    excessive requests to the exchange API. This will help in reducing network calls
+    and avoiding potential IP bans or throttling. Modify the `fetch_data` method in
+    `src/backend/market_data_fetcher.py` to include a rate limiter using a simple
+    sleep mechanism based on the exchange's rate limits. Verify the implementation
+    by running integration tests that simulate high-frequency data fetching.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T01:13:18Z'
+  completed_at: '2026-07-10T01:24:57Z'
+- id: imp-adc5f295
+  title: Enhance Logging for Market Data Fetching Errors
+  description: Add detailed logging for errors encountered during market data fetching
+    in the `MarketDataFetcher` class. This will help in diagnosing issues more effectively.
+    Modify the error handling in `src/backend/market_data_fetcher.py` to log specific
+    exceptions and their details using the existing logging configuration. Verify
+    the implementation by triggering a known error scenario and checking the logs.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T01:13:18Z'
+  completed_at: '2026-07-10T01:49:17Z'
+- id: imp-7da9e272
+  title: Refactor Strategy Configuration Loading for Better Modularity
+  description: Refactor the strategy configuration loading process to make it more
+    modular and easier to extend. Create a new module `strategy_config_loader.py`
+    in the `config` directory that handles loading and validating strategy configurations.
+    Update the `TradingEngine` class to use this new loader. Verify the implementation
+    by running unit tests for strategy configuration loading.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T01:13:18Z'
+  completed_at: '2026-07-10T02:16:17Z'
+- id: imp-22e94c40
+  title: Optimize Market Data Fetching by Implementing Throttling
+  description: Implement throttling in the `MarketDataFetcher` class to limit the
+    number of requests made per second. This will help reduce network load and avoid
+    hitting rate limits. Modify the `fetch_data` method in `src/backend/market_data_fetcher.py`.
+    Verify the implementation by running integration tests that simulate high-frequency
+    data fetching.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T02:17:19Z'
+  completed_at: '2026-07-10T14:08:26Z'
+- id: imp-69c040b7
+  title: Enhance Logging for Risk Management Events
+  description: Add detailed logging for risk management events in the `RiskManagement`
+    class. This will help with debugging and analysis by providing insights into how
+    risk management decisions are made. Modify the `apply_risk_management` method
+    in `src/risk_management.py`. Verify the implementation by checking the logs generated
+    during backtesting.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T02:17:19Z'
+  completed_at: '2026-07-10T16:35:49Z'
+- id: imp-2e0c40d2
+  title: Add RSI Strategy Implementation
+  description: Implement a Relative Strength Index (RSI) trading strategy in `src/strategy/rsi_strategy.py`.
+    This will add a new trading strategy to the bot, enhancing its capabilities. The
+    implementation should include logic for calculating RSI and generating buy/sell
+    signals based on predefined thresholds. Verify the implementation by writing unit
+    tests in `tests/unit/test_rsi_strategy_test.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T16:37:06Z'
+  completed_at: '2026-07-10T19:12:02Z'
+- id: imp-33c7fa45
+  title: Optimize Strategy Execution by Caching Results
+  description: Implement caching for strategy execution results in `src/trading_engine.py`
+    to reduce redundant calculations. Use a simple in-memory cache (e.g., dictionary)
+    to store recent strategy outputs based on market data inputs. Verify the optimization
+    by comparing performance before and after the change using benchmarks in `tests/performance/benchmark_moving_average.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T16:37:06Z'
+  completed_at: '2026-07-10T21:29:45Z'
+- id: imp-66301b93
+  title: Enhance Risk Management by Adding Stop-Loss Handling
+  description: Add stop-loss handling to the risk management module in `src/risk_management.py`.
+    Implement logic to automatically sell positions when they reach a predefined loss
+    threshold. Verify the implementation by writing integration tests in `tests/integration/test_risk_management.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T16:37:06Z'
+  completed_at: '2026-07-10T21:41:22Z'
+- id: imp-b3c4b489
+  title: Add Logging for GUI Events
+  description: Enhance the `CryptoTradingBotGUI` class in `gui/main.py` to log user
+    interactions such as starting and stopping trading, changing modes, etc. Use Python's
+    logging module to append these events to a log file named `gui.log`. Verify by
+    checking the `gui.log` after performing various actions in the GUI.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T21:42:21Z'
+  completed_at: '2026-07-10T21:56:26Z'
+- id: imp-0e97412f
+  title: Implement Caching for Strategy Configuration
+  description: Modify the `strategy_config_loader.py` to cache strategy configurations
+    after loading them from JSON files. This will reduce I/O operations and speed
+    up strategy initialization. Verify by running unit tests in `tests/unit/test_strategy_config_loader.py`
+    and observing performance improvements.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T21:42:21Z'
+  completed_at: '2026-07-10T22:00:19Z'
+- id: imp-7e7808a5
+  title: Optimize Market Data Fetcher by Implementing Exponential Backoff
+  description: Implement exponential backoff in the MarketDataFetcher to handle network
+    failures more gracefully and reduce unnecessary retries. This will improve the
+    reliability and efficiency of market data fetching. Modify `src/backend/market_data_fetcher.py`
+    to include exponential backoff logic using a retry mechanism with increasing wait
+    times between attempts. Verify the implementation by running integration tests
+    in `tests/integration/test_market_data_fetcher_integration.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T22:43:36Z'
+  completed_at: '2026-07-10T23:30:37Z'
+- id: imp-01ff66ed
+  title: Optimize Market Data Fetching by Implementing Connection Pooling
+  description: Implement connection pooling for market data fetching in `src/backend/market_data_fetcher.py`
+    to reduce the overhead of establishing new connections. This will make the bot
+    more efficient, especially during high-frequency trading. Verify the improvement
+    by running performance benchmarks before and after the change.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T23:44:54Z'
+  completed_at: '2026-07-11T00:11:46Z'
+- id: imp-e7d24650
+  title: Add Moving Average Convergence Divergence (MACD) Strategy Implementation
+  description: Implement a new trading strategy based on the Moving Average Convergence
+    Divergence (MACD) in `src/strategy/macd_strategy.py`. This will add a new feature
+    to the bot, making it more versatile. Verify the implementation by running backtests
+    and comparing results with existing strategies.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T23:44:54Z'
+  completed_at: '2026-07-11T00:23:26Z'
+- id: imp-b2313f23
+  title: Enhance Risk Management by Adding Take-Profit Handling
+  description: Add take-profit handling to the risk management module in `src/risk_management.py`.
+    This will improve the bot's ability to lock in profits. Verify the implementation
+    by running backtests and ensuring that take-profit orders are executed correctly.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-10T23:44:54Z'
+  completed_at: '2026-07-11T02:43:53Z'
+- id: imp-9455d7b3
+  title: Optimize Market Data Fetcher by Implementing Asynchronous Requests
+  description: Modify `src/backend/market_data_fetcher.py` to use asynchronous requests
+    for fetching market data. This will reduce the time spent waiting for network
+    responses and make the bot more responsive. Use `aiohttp` for making asynchronous
+    HTTP requests. Verify the improvement by comparing the performance before and
+    after this change using logs or a simple benchmark script.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T02:44:48Z'
+  completed_at: '2026-07-11T02:52:59Z'
+- id: imp-7dbe5ddf
+  title: Optimize Market Data Fetcher by Implementing Caching for Recent Data
+  description: Implement caching for recently fetched market data to reduce redundant
+    API calls. Modify `src/backend/market_data_fetcher.py` to include a cache mechanism
+    that stores recent market data and checks the cache before making new API requests.
+    Use `src/cache_manager.py` to handle caching logic. Verify the improvement by
+    running integration tests in `tests/integration/test_market_data_caching.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T03:46:22Z'
+  completed_at: '2026-07-11T04:03:55Z'
+- id: imp-20be9ea5
+  title: Add Logging for Strategy Execution Time
+  description: Enhance logging to include the execution time of each trading strategy.
+    Modify `src/strategy/base_strategy.py` and other strategy files to log the start
+    and end times of strategy execution. Verify the improvement by checking logs in
+    `trading_engine.log`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T03:46:22Z'
+  completed_at: '2026-07-11T05:54:41Z'
+- id: imp-9575a377
+  title: Implement Asynchronous Strategy Execution
+  description: Modify strategy execution to run asynchronously to improve performance.
+    Update `src/trading_engine.py` and relevant strategy files to use asynchronous
+    functions. Verify the improvement by running performance benchmarks in `tests/performance/benchmark_moving_average.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T03:46:22Z'
+  completed_at: '2026-07-11T06:09:33Z'
+- id: imp-7f8c4783
+  title: Optimize Market Data Fetching by Implementing Concurrent Requests
+  description: Modify the `src/backend/market_data_fetcher.py` to use concurrent requests
+    for fetching market data. This will reduce the time taken to fetch multiple data
+    points simultaneously. Use Python's `asyncio` and `aiohttp` libraries to implement
+    this. Verify the improvement by comparing the execution time before and after
+    the change.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T06:10:41Z'
+  completed_at: '2026-07-11T07:08:41Z'
+- id: imp-b54b6d65
+  title: Enhance Strategy Execution by Parallelizing Strategy Evaluations
+  description: Modify the `src/trading_engine.py` to parallelize the evaluation of
+    different trading strategies using Python's `concurrent.futures`. This will allow
+    for faster decision-making. Verify the improvement by comparing the execution
+    time before and after the change.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T06:10:41Z'
+  completed_at: '2026-07-11T07:23:05Z'
+- id: imp-0e680aa4
+  title: Optimize Risk Management by Implementing Efficient Data Structures
+  description: Modify the `src/risk_management.py` to use more efficient data structures
+    (e.g., dictionaries or sets) for storing and accessing risk-related data. This
+    will improve overall performance. Verify the improvement by comparing the execution
+    time before and after the change.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T06:10:41Z'
+  completed_at: '2026-07-11T07:58:48Z'
+- id: imp-1c5d1d33
+  title: Implement Strategy Configuration Validation
+  description: Add validation for strategy configurations to ensure they conform to
+    the expected schema. This will prevent runtime errors due to invalid configuration
+    files. Modify `config/strategy_config_loader.py` to include JSON schema validation
+    using the provided `config/schema/strategy_config_schema.json`. Verify it works
+    by running tests in `tests/config/test_strategy_config_loader.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T07:59:36Z'
+  completed_at: '2026-07-11T08:07:15Z'
+- id: imp-fa79e0a4
+  title: Enhance Market Data Fetcher Error Handling
+  description: Improve error handling in `src/backend/market_data_fetcher.py` to log
+    detailed information about failures and retry with exponential backoff. Modify
+    the existing code to include these enhancements and verify it works by running
+    tests in `tests/integration/test_market_data_fetcher_integration.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T07:59:36Z'
+  completed_at: '2026-07-11T08:17:57Z'
+- id: imp-c058b1a6
+  title: Optimize Strategy Execution by Reducing Redundant Calculations
+  description: Identify and eliminate redundant calculations in strategy execution
+    within `src/trading_engine.py` and `src/strategy/base_strategy.py`. Use profiling
+    tools to identify slow parts of the code, optimize them, and verify improvements
+    with performance benchmarks in `tests/performance/benchmark_moving_average.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T07:59:36Z'
+  completed_at: '2026-07-11T08:31:15Z'
+- id: imp-94598181
+  title: Implement Strategy Configuration Validation in src/config_loader.py
+  description: Add validation logic to ensure that the strategy configuration loaded
+    from config.json is correct and complete. This includes checking for required
+    fields, valid data types, and adherence to schema defined in config/schema/strategy_config_schema.json.
+    Modify src/config_loader.py to include this validation. The agent can verify it
+    works by running tests/test_config_loader.py and ensuring all test cases pass.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T09:01:12Z'
+  completed_at: '2026-07-11T09:07:56Z'
+- id: imp-768dbe93
+  title: Optimize Market Data Fetcher by Implementing Caching for Recent Data in src/market_data_fetcher.py
+  description: Implement caching for recent market data fetched from the exchange
+    API to reduce redundant requests and improve performance. Modify src/market_data_fetcher.py
+    to include a cache mechanism using the CacheManager class from src/cache_manager.py.
+    The agent can verify it works by running tests/integration/test_market_data_caching.py
+    and ensuring all test cases pass.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T09:01:12Z'
+  completed_at: '2026-07-11T09:11:44Z'
+- id: imp-d1a98ea3
+  title: Enhance Risk Management by Adding Stop-Loss Handling in src/risk_management.py
+  description: Add stop-loss handling to the risk management module. Modify src/risk_management.py
+    to include logic for setting and monitoring stop-loss levels based on strategy
+    configuration. The agent can verify it works by running tests/integration/test_risk_management.py
+    and ensuring all test cases pass.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T09:01:12Z'
+  completed_at: '2026-07-11T09:30:19Z'
+- id: imp-3b698856
+  title: Optimize Strategy Execution by Implementing Lazy Evaluation
+  description: Modify the strategy execution logic to use lazy evaluation for calculations.
+    This will reduce unnecessary computations and improve performance. Specifically,
+    update the `execute` method in `src/strategy/base_strategy.py` to use generators
+    or other lazy evaluation techniques where applicable. Verify the improvement by
+    running a backtest and comparing execution times.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T11:04:07Z'
+  completed_at: '2026-07-11T11:13:23Z'
+- id: imp-016f30b7
+  title: Enhance Logging for Backtesting
+  description: Improve logging in the backtester to capture more detailed information
+    about each trade and strategy execution. Update `src/backtest/backtester.py` to
+    include additional log entries such as entry price, exit price, profit/loss, and
+    duration of trades. Verify the improvement by running a backtest and checking
+    the logs for detailed information.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T11:04:07Z'
+  completed_at: '2026-07-11T11:24:22Z'
+- id: imp-0949d70a
+  title: Implement a Simple Moving Average (SMA) Strategy
+  description: Add a new strategy implementation for the Simple Moving Average (SMA).
+    Create a new file `src/strategy/sma_strategy.py` and implement the logic for generating
+    buy and sell signals based on SMA crossover. Verify the implementation by running
+    backtests with this new strategy.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T11:04:07Z'
+  completed_at: '2026-07-11T11:37:45Z'
+- id: imp-2e1e9995
+  title: Optimize Market Data Fetcher by Implementing Rate Limiting
+  description: Implement rate limiting in the market data fetcher to prevent excessive
+    API calls and improve efficiency. Modify `src/backend/market_data_fetcher.py`
+    to include a rate limiter that respects the exchange's API rate limits. Verify
+    the implementation by running integration tests in `tests/integration/test_market_data_fetcher_integration.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T12:05:59Z'
+  completed_at: '2026-07-11T12:17:43Z'
+- id: imp-0462d00e
+  title: Add Relative Strength Index (RSI) Strategy Implementation
+  description: Implement a new trading strategy based on the Relative Strength Index
+    (RSI). Create a new file `src/strategy/rsi_strategy.py` and define the RSI strategy
+    logic. Verify the implementation by adding unit tests in `tests/unit/test_rsi_strategy_test.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T12:05:59Z'
+  completed_at: '2026-07-11T12:35:25Z'
+- id: imp-0e273484
+  title: Enhance Logging for Strategy Execution Time
+  description: Add logging to measure and log the execution time of each strategy.
+    Modify `src/trading_engine.py` to include timing logic around strategy execution.
+    Verify the implementation by checking logs in `backtest.log`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T12:05:59Z'
+  completed_at: '2026-07-11T13:04:03Z'
+- id: imp-1ab974f7
+  title: Optimize Strategy Execution by Implementing Caching for Indicator Calculations
+  description: Implement caching for indicator calculations in the strategy module
+    to reduce redundant computations. This will improve performance, especially in
+    backtest mode where multiple strategies and indicators are evaluated repeatedly.
+    Modify `src/strategy/base_strategy.py` and `src/utils/cache_manager.py`. Verify
+    by running backtests with and without caching and comparing execution times.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T13:07:17Z'
+  completed_at: '2026-07-11T13:17:37Z'
+- id: imp-e7b70c76
+  title: Refactor Configuration Loading to Use Environment Variables for Sensitive
+    Data
+  description: Refactor the configuration loading process in `config/config_loader.py`
+    to use environment variables for sensitive data like API keys and secrets. This
+    will enhance security by keeping sensitive information out of configuration files.
+    Verify by running the application with different configurations and ensuring that
+    it correctly loads API credentials from `.env`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T13:07:17Z'
+  completed_at: '2026-07-11T15:31:52Z'
+- id: imp-bee86d85
+  title: Implement Logging for Backtest Mode to Track Performance Metrics
+  description: Enhance logging in backtest mode by adding performance metrics tracking.
+    This will help in analyzing the effectiveness of different strategies and configurations.
+    Modify `src/backtest/logger.py` and add relevant log statements in `src/trading_engine.py`.
+    Verify by running a backtest and checking the logs for performance metrics.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T13:07:17Z'
+  completed_at: '2026-07-11T16:32:34Z'
+- id: imp-90bd75e9
+  title: Implement Order Execution Simulation in Backtest Mode
+  description: Add functionality to simulate order execution during backtesting. This
+    involves modifying the `src/backtest/backtester.py` file to include methods for
+    simulating buy and sell orders based on strategy signals. The simulation should
+    log each trade with details like timestamp, price, quantity, and total cost. Verification
+    can be done by running a backtest and checking the logs in `backtest.log` to ensure
+    trades are being simulated correctly.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T16:33:25Z'
+  completed_at: '2026-07-11T17:15:42Z'
+- id: imp-408ac48a
+  title: Enhance Risk Management by Adding Take-Profit Handling in src/risk_management.py
+  description: Add take-profit handling to the risk management module in `src/risk_management.py`.
+    This involves creating a method that checks if the current price has reached or
+    exceeded the take-profit level and triggers a sell order. Verification can be
+    done by running integration tests that simulate trades with predefined take-profit
+    levels.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T16:33:25Z'
+  completed_at: '2026-07-11T18:01:54Z'
+- id: imp-48ed29bf
+  title: Implement Stop-Loss Handling in Trading Engine
+  description: Add stop-loss handling functionality to the trading engine. This involves
+    modifying `src/trading_engine.py` to integrate with the existing risk management
+    module (`src/risk_management/take_profit_handler.py`). The trading engine should
+    check for stop-loss conditions during market price updates and trigger sell orders
+    accordingly. Verification can be done by running integration tests in `tests/integration/test_trading_engine_risk_integration.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T18:02:45Z'
+  completed_at: '2026-07-11T18:56:29Z'
+- id: imp-e2769de7
+  title: Optimize Strategy Execution by Implementing Vectorized Calculations
+  description: Improve the performance of strategy execution by using vectorized calculations
+    with libraries like NumPy. This will reduce the computational overhead in functions
+    such as moving average and RSI calculations in `src/strategy/moving_average_crossover.py`
+    and `src/strategy/rsi_strategy.py`. Verify the improvement by running benchmarks
+    before and after the change.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T19:04:47Z'
+  completed_at: '2026-07-11T19:47:55Z'
+- id: imp-0328cea7
+  title: Add Exponential Moving Average (EMA) Strategy Implementation
+  description: Implement a new trading strategy based on the Exponential Moving Average
+    (EMA). This will involve creating a new file `src/strategy/ema_strategy.py` and
+    adding the necessary logic for EMA calculations. Verify the implementation by
+    running backtests with historical data.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T19:04:47Z'
+  completed_at: '2026-07-11T20:03:17Z'
+- id: imp-b4c251ff
+  title: Enhance Backtesting to Include Transaction Costs and Slippage
+  description: Modify the backtesting module to account for transaction costs and
+    slippage. This will involve updating `src/backtest/backtester.py` to include these
+    factors in the simulation. Verify the changes by running backtests with different
+    transaction cost scenarios.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T19:04:47Z'
+  completed_at: '2026-07-11T20:56:13Z'
+- id: imp-85d19054
+  title: Optimize Market Data Fetcher by Implementing Concurrent Requests
+  description: Modify `src/backend/market_data_fetcher.py` to fetch market data concurrently
+    using asynchronous requests. This will improve the speed of data retrieval and
+    reduce latency. Use `asyncio` and `aiohttp` for concurrent HTTP requests. Verify
+    the improvement by running integration tests in `tests/integration/test_market_data_integration.py`
+    and measuring the time taken for data fetching.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T20:57:11Z'
+  completed_at: '2026-07-11T21:10:38Z'
+- id: imp-90a60839
+  title: Implement Caching for Strategy Configurations
+  description: Add caching to `config/strategy_config_loader.py` to store and retrieve
+    strategy configurations efficiently. Use a simple in-memory cache or a library
+    like `functools.lru_cache`. Verify the implementation by running unit tests in
+    `tests/unit/test_config_loader.py` and ensuring that configuration loading is
+    faster after multiple accesses.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T20:57:11Z'
+  completed_at: '2026-07-11T21:17:08Z'
+- id: imp-06311c94
+  title: Implement MACD Strategy Configuration Validation
+  description: Add configuration validation for the MACD strategy in `config/strategy_config_loader.py`.
+    Ensure that the required parameters (`short_window`, `long_window`, `signal_line`)
+    are present and valid. This is necessary to prevent runtime errors due to invalid
+    configurations. Verify by running tests in `tests/config/test_strategy_config_loader.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T21:58:25Z'
+  completed_at: '2026-07-11T22:05:44Z'
+- id: imp-a76f7f1a
+  title: Optimize Market Data Fetcher by Implementing Connection Pooling
+  description: Implement connection pooling in `src/backend/connection_pool.py` to
+    reuse existing connections for market data fetching. This will reduce the overhead
+    of establishing new connections and improve performance. Verify by running integration
+    tests in `tests/integration/test_market_data_fetcher_integration.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T21:58:25Z'
+  completed_at: '2026-07-11T22:16:57Z'
+- id: imp-aa42de6d
+  title: Enhance Logging for MACD Strategy Execution Time
+  description: Add logging to track the execution time of the MACD strategy in `src/strategy/macd_strategy.py`.
+    Use the existing logging setup in `src/logging_config.py` to ensure consistency.
+    Verify by checking logs generated during backtesting or live runs.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T21:58:25Z'
+  completed_at: '2026-07-11T22:26:30Z'
+- id: imp-21737e55
+  title: Implement Bollinger Bands Strategy Configuration Validation
+  description: Add configuration validation for the Bollinger Bands strategy in `config/strategy_config_loader.py`.
+    Ensure that the required parameters (e.g., window size, number of standard deviations)
+    are present and valid. This will prevent runtime errors due to incorrect configurations.
+    Verify by running tests in `tests/config/test_strategy_config_loader.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T22:59:42Z'
+  completed_at: '2026-07-11T23:10:44Z'
+- id: imp-f663558f
+  title: Optimize Market Data Fetcher by Implementing Caching for Historical Data
+  description: Modify `src/data/market_data_fetcher.py` to cache historical data fetched
+    from the exchange API. This will reduce redundant requests and improve performance.
+    Verify by running integration tests in `tests/integration/test_market_data_caching.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T22:59:42Z'
+  completed_at: '2026-07-11T23:27:54Z'
+- id: imp-97d02bf8
+  title: Add Logging for Bollinger Bands Strategy Execution Time
+  description: Enhance logging in `src/strategy/bollinger_bands_strategy.py` to track
+    the execution time of the Bollinger Bands strategy. This will help in performance
+    monitoring and optimization. Verify by checking logs generated during backtesting.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-11T22:59:42Z'
+  completed_at: '2026-07-11T23:39:25Z'
+- id: imp-caaaaffb
+  title: Implement Slippage Simulation in Backtest Mode
+  description: Add slippage simulation to the backtesting module to make it more realistic.
+    Modify `src/backtest/slippage.py` to include a function that calculates and applies
+    slippage based on market data. Update `src/backtest/trade_logger.py` to log slippage
+    effects in trade records. Verify by running backtests with and without slippage
+    and comparing results.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T00:01:19Z'
+  completed_at: '2026-07-12T00:40:55Z'
+- id: imp-55b2e3a2
+  title: Optimize Market Data Fetcher by Implementing Lazy Evaluation
+  description: Implement lazy evaluation in the market data fetcher to reduce unnecessary
+    data fetching. Modify `src/data/market_data_fetcher.py` to use a generator for
+    fetching data only when needed. Verify by comparing performance metrics before
+    and after implementation.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T00:01:19Z'
+  completed_at: '2026-07-12T00:53:56Z'
+- id: imp-9786c43c
+  title: Add Logging for Strategy Configuration Validation Errors
+  description: Enhance logging to capture errors during strategy configuration validation.
+    Modify `config/strategy_config_loader.py` to log detailed error messages when
+    configuration is invalid. Verify by running the bot with an intentionally invalid
+    configuration and checking logs for appropriate error messages.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T00:01:19Z'
+  completed_at: '2026-07-12T00:59:33Z'
+- id: imp-6c5e26b8
+  title: Implement RSI Strategy Configuration Validation
+  description: Add configuration validation for the RSI strategy in `config/strategy_config_loader.py`.
+    This involves defining a schema and using it to validate the RSI strategy configuration.
+    Ensure that the validation checks for required fields like `rsi_period` and `overbought_threshold`,
+    and logs any validation errors. Verify this by adding unit tests in `tests/unit/test_strategy_config_loader.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T01:01:57Z'
+  completed_at: '2026-07-12T01:09:26Z'
+- id: imp-858359cf
+  title: Optimize Market Data Fetcher by Implementing Batch Requests
+  description: Modify the `MarketDataFetcher` class in `src/market_data/fetcher.py`
+    to support batch requests for market data. This will reduce the number of API
+    calls and improve performance. Verify the improvement by running integration tests
+    that measure the reduction in API call count and response time.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T02:20:53Z'
+  completed_at: '2026-07-12T03:49:19Z'
+- id: imp-0997de93
+  title: Implement Caching for Strategy Execution Results
+  description: Add caching to the `TradingEngine` class in `src/trading_engine.py`
+    to store and reuse results of strategy executions. This will reduce redundant
+    calculations and improve performance. Verify the improvement by running unit tests
+    that measure the reduction in execution time.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T02:20:53Z'
+  completed_at: '2026-07-12T04:00:02Z'
+- id: imp-77245307
+  title: Enhance Logging for Backtest Mode to Include Detailed Trade Metrics
+  description: Update the `Backtester` class in `src/backtest/backtester.py` to log
+    detailed trade metrics such as entry price, exit price, profit/loss, and duration.
+    This will provide more insights into backtest performance. Verify the improvement
+    by running a backtest and checking the logs for the new metrics.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T02:20:53Z'
+  completed_at: '2026-07-12T04:58:41Z'
+- id: imp-a1a4b27c
+  title: Optimize Market Data Fetcher by Implementing Lazy Evaluation for Real-Time
+    Data
+  description: Modify the `src/market_data/fetcher.py` to implement lazy evaluation
+    for fetching real-time market data. This will ensure that data is fetched only
+    when needed, reducing unnecessary API calls and improving efficiency. Verify this
+    improvement by running integration tests in `tests/integration/test_market_data_fetcher_integration.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T04:59:36Z'
+  completed_at: '2026-07-12T05:05:09Z'
+- id: imp-41da3bc3
+  title: Enhance Logging for Trading Engine Execution Time
+  description: Add logging to measure and record the execution time of the trading
+    engine in `src/trading_engine.py`. This will help identify performance bottlenecks.
+    Verify this by checking the logs generated during backtest runs.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T04:59:36Z'
+  completed_at: '2026-07-12T05:16:43Z'
+- id: imp-8f106efb
+  title: Implement SMA Strategy Configuration Validation
+  description: Add configuration validation for the Simple Moving Average (SMA) strategy
+    in `src/strategy/sma_strategy.py`. Ensure that the required parameters are present
+    and valid. Verify this by running unit tests in `tests/unit/test_sma_strategy.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T04:59:36Z'
+  completed_at: '2026-07-12T05:52:42Z'
+- id: imp-9d9c7a90
+  title: Add Logging for Market Data Fetcher Performance Metrics
+  description: Enhance logging in the `MarketDataFetcher` class to include performance
+    metrics such as request latency and cache hit/miss rates. Modify `src/market_data/fetcher.py`
+    to log these metrics using the existing logging configuration. Verify the implementation
+    by checking logs generated during integration tests in `tests/integration/test_market_data_fetcher_integration.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T06:00:58Z'
+  completed_at: '2026-07-12T06:11:04Z'
+- id: imp-b45ed8c2
+  title: 'Implement a New Strategy: Relative Strength Index (RSI) Strategy'
+  description: Add a new trading strategy based on the Relative Strength Index (RSI).
+    Create a new file `src/strategy/rsi_strategy.py` and implement the RSI strategy
+    logic. Update `config/schema/strategy_config_schema.json` to include configuration
+    options for the RSI strategy. Verify the implementation by running unit tests
+    in `tests/unit/test_rsi_strategy_test.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T06:00:58Z'
+  completed_at: '2026-07-12T06:23:12Z'
+- id: imp-611631f3
+  title: Add RSI Strategy to main.py initialization
+  description: The current `main.py` only initializes the 'moving_average_crossover'
+    and 'ema_strategy'. We need to add support for the 'rsi_strategy' as well. This
+    involves updating the `initialize_strategy` function to include the RSI strategy.
+    The agent can verify this by running the bot in backtest mode with an RSI strategy
+    configuration and checking if it executes without errors.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T07:02:00Z'
+  completed_at: '2026-07-12T07:17:08Z'
+- id: imp-aea2dbe6
+  title: Implement Take-Profit Handling in Trading Engine
+  description: Add take-profit functionality to the trading engine. This involves
+    integrating the `TakeProfitHandler` from `src/risk_management/take_profit_handler.py`
+    into the core logic of `trading_engine.py`. The take-profit should be configurable
+    via the strategy configuration and should trigger a sell order if the price rises
+    above a specified threshold. Verify by running backtests with different take-profit
+    thresholds and checking that trades are correctly closed when the condition is
+    met.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T08:03:34Z'
+  completed_at: '2026-07-12T08:30:31Z'
+- id: imp-d3af0661
+  title: Optimize Market Data Fetcher for Real-Time Data
+  description: Enhance the `MarketDataFetcher` in `src/market_data/fetcher.py` to
+    improve performance when fetching real-time data. This could involve implementing
+    caching, batch requests, or lazy evaluation techniques. Measure the current execution
+    time using the profiler in `src/utils/profiler.py` and compare it against the
+    optimized version to verify improvements.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T08:03:34Z'
+  completed_at: '2026-07-12T08:44:35Z'
+- id: imp-3b7ac41d
+  title: Implement Live Trading Logic in main.py
+  description: Add the core logic for live trading mode in `main.py`. This includes
+    initializing the trading engine, fetching real-time market data, executing trades
+    based on the selected strategy, and handling risk management. Verify it works
+    by running the bot in live mode with a mock exchange API.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T10:05:36Z'
+  completed_at: '2026-07-12T11:26:26Z'
+- id: imp-4747eaea
+  title: Implement Paper Trading Logic in main.py
+  description: Add the core logic for paper trading mode in `main.py`. This includes
+    simulating trades based on real-time market data and strategy signals without
+    executing actual trades. Verify it works by running the bot in paper trading mode
+    with a mock exchange API.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T10:05:36Z'
+  completed_at: '2026-07-12T11:55:53Z'
+- id: imp-6fa808c4
+  title: Implement Backtesting Logic in main.py
+  description: Add the core logic for backtesting mode in `main.py`. This includes
+    loading historical data, simulating trades based on strategy signals, and logging
+    detailed trade metrics. Verify it works by running the bot in backtest mode with
+    a sample historical data file.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T10:05:36Z'
+  completed_at: '2026-07-12T12:18:43Z'
+- id: imp-7cb13a78
+  title: Add Stop-Loss Handling to the Trading Engine
+  description: Implement stop-loss handling in the trading engine. This involves modifying
+    the `TradingEngine` class to include logic for setting and checking stop-loss
+    levels for open positions. The stop-loss level should be configurable via the
+    strategy configuration. Verify by adding unit tests that simulate trades with
+    different stop-loss thresholds and ensure they are triggered correctly.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T12:19:27Z'
+  completed_at: '2026-07-12T12:35:10Z'
+- id: imp-40835918
+  title: Implement Strategy Configuration Validation for Stop-Loss
+  description: Add validation logic to ensure that the stop-loss configuration in
+    strategy configurations is valid. This involves modifying the `strategy_config_loader.py`
+    to include checks for stop-loss parameters and raising appropriate exceptions
+    if they are invalid. Verify by adding unit tests that test both valid and invalid
+    configurations.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T12:19:27Z'
+  completed_at: '2026-07-12T12:45:00Z'
+- id: imp-faeaf90e
+  title: Enhance Logging for Stop-Loss Execution
+  description: Add detailed logging to the trading engine when stop-loss levels are
+    triggered. This involves modifying the `TradingEngine` class to log relevant information
+    about stop-loss executions. Verify by running backtests and checking that the
+    logs contain the expected information.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T12:19:27Z'
+  completed_at: '2026-07-12T12:54:37Z'
+- id: imp-7c6b9893
+  title: Optimize Market Data Fetcher for Concurrent Requests
+  description: Modify the `src/market_data/fetcher.py` to use concurrent requests
+    for fetching market data. This will reduce latency by allowing multiple data points
+    to be fetched simultaneously. Use Python's `concurrent.futures.ThreadPoolExecutor`
+    or `asyncio` for this purpose. Verify the improvement by comparing execution times
+    before and after the change using `src/utils/profiler.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T13:20:41Z'
+  completed_at: '2026-07-12T13:32:14Z'
+- id: imp-738c41fd
+  title: Implement Exponential Moving Average (EMA) Strategy Configuration Validation
+  description: Add configuration validation for the EMA strategy in `config/strategy_config_loader.py`.
+    Ensure that required fields such as short_window and long_window are present and
+    valid. This is necessary to prevent runtime errors due to invalid configurations.
+    Verification can be done by running tests in `tests/config/test_strategy_config_loader.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T14:21:58Z'
+  completed_at: '2026-07-12T14:28:11Z'
+- id: imp-ba874159
+  title: Optimize Market Data Fetcher for Concurrent Requests in Backtest Mode
+  description: Modify `src/backtest/market_data_fetcher.py` to handle concurrent requests
+    efficiently during backtesting. This will improve the performance of data fetching,
+    especially with large datasets. Verification can be done by running integration
+    tests in `tests/integration/test_backtest_with_concurrent_requests.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T14:21:58Z'
+  completed_at: '2026-07-12T14:40:08Z'
+- id: imp-dde51b62
+  title: Enhance Logging for EMA Strategy Execution Time
+  description: Add logging to measure and record the execution time of the EMA strategy
+    in `src/strategy/ema_strategy.py`. This will help in identifying performance bottlenecks.
+    Verification can be done by checking logs generated during backtesting or live
+    trading.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T14:21:58Z'
+  completed_at: '2026-07-12T15:28:28Z'
+- id: imp-69a9549a
+  title: Optimize Market Data Fetcher for Reduced API Calls
+  description: Reduce the number of API calls made by the market data fetcher in real-time
+    trading mode by implementing a more efficient caching mechanism. Modify `src/market_data/fetcher.py`
+    to include a time-based cache that stores fetched data for a short duration before
+    making new requests. This will reduce latency and improve performance. Verify
+    the improvement by running integration tests in `tests/integration/test_market_data_fetcher_integration.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T15:29:31Z'
+  completed_at: '2026-07-12T16:35:41Z'
+- id: imp-a92f653a
+  title: Enhance Risk Management with Position Sizing Rules
+  description: Implement position sizing rules in the risk management module to dynamically
+    adjust trade sizes based on account balance and volatility. Modify `src/risk_management/risk_management.py`
+    to include a function that calculates optimal position size for each trade. Verify
+    the implementation by running tests in `tests/unit/test_stop_loss_handler.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T15:29:31Z'
+  completed_at: '2026-07-12T16:46:10Z'
+- id: imp-666aaa44
+  title: Implement Logging for Strategy Execution Time
+  description: Enhance logging in src/strategy/base_strategy.py to log the execution
+    time of each strategy. This will help identify bottlenecks and optimize specific
+    strategies.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T17:48:53Z'
+  completed_at: '2026-07-12T18:01:02Z'
+- id: imp-d7cf2a73
+  title: Add Position Sizing Based on Account Balance
+  description: Modify src/risk_management/risk_management.py to include logic for
+    calculating position sizes based on available account balance. This will make
+    the bot more adaptive and risk-aware.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T17:48:53Z'
+  completed_at: '2026-07-12T18:10:06Z'
+- id: imp-ebe9af4b
+  title: Implement Position Sizing Based on Account Balance in Paper Trading Mode
+  description: Modify the paper trading logic to dynamically adjust position sizes
+    based on the current account balance. This ensures that trades are sized appropriately
+    without risking more than available funds. Update `src/paper_trading_engine.py`
+    to include position sizing rules similar to those in `src/risk_management/position_sizing.py`.
+    Verify by running paper trading mode and checking if positions are correctly sized
+    according to the account balance.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T19:51:53Z'
+  completed_at: '2026-07-12T20:25:19Z'
+- id: imp-85ac65d7
+  title: Optimize Market Data Fetcher for Reduced API Calls in Live Mode
+  description: Refactor the market data fetcher in `src/market_data/fetcher.py` to
+    reduce the number of API calls by implementing caching and rate limiting. Use
+    the existing `src/utils/rate_limiter.py` and enhance it if necessary. Verify by
+    running live mode and monitoring the number of API requests made.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T19:51:53Z'
+  completed_at: '2026-07-12T20:38:15Z'
+- id: imp-254c71e0
+  title: Add Detailed Logging for Strategy Execution Time in Backtest Mode
+  description: Enhance the backtesting engine to log detailed execution times for
+    each strategy. Update `src/backtest/logger.py` to include timing information and
+    ensure logs are written to a specified file path as configured in `config/config.json`.
+    Verify by running backtests and checking the generated log files for accurate
+    timing data.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T19:51:53Z'
+  completed_at: '2026-07-12T21:43:43Z'
+- id: imp-8e5888e8
+  title: Add detailed logging for strategy execution time in Paper Trading Mode
+  description: Enhance the paper trading mode to log the execution time of each strategy.
+    This will help identify performance bottlenecks during simulation sessions. Modify
+    `src/paper_trading_engine.py` to include timing logic and logging statements similar
+    to those used in backtest mode. Verify by running a paper trade session and checking
+    the logs for detailed execution times.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T21:44:28Z'
+  completed_at: '2026-07-12T22:02:25Z'
+- id: imp-d525a55c
+  title: Implement concurrent market data fetching in Paper Trading Mode
+  description: Optimize the paper trading mode to fetch market data concurrently,
+    reducing the overall time taken for data retrieval. Modify `src/market_data/fetcher.py`
+    to support concurrent requests using threading or asyncio. Verify by running a
+    paper trade session and measuring the reduction in data fetching time.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T21:44:28Z'
+  completed_at: '2026-07-12T22:54:43Z'
+- id: imp-90ba1698
+  title: Add position sizing based on account balance in Backtest Mode
+  description: Implement position sizing logic that adjusts the trade size based on
+    the available account balance during backtesting. Modify `src/backtest_engine.py`
+    to include this logic, ensuring it respects risk management rules. Verify by running
+    a backtest and checking that trades are sized appropriately according to the account
+    balance.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T21:44:28Z'
+  completed_at: '2026-07-12T23:55:07Z'
+- id: imp-6c9bedf1
+  title: Optimize Market Data Fetcher to Reduce Redundant API Calls
+  description: Modify the fetch_market_data method in src/market_data/fetcher.py to
+    reduce redundant API calls by implementing a more efficient caching mechanism.
+    This will involve checking if the requested data is already available in the cache
+    before making an API call. The agent can verify this improvement by running integration
+    tests and measuring the reduction in API calls.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-12T23:55:45Z'
+  completed_at: '2026-07-13T00:11:12Z'
+- id: imp-4cd5e283
+  title: Optimize Market Data Fetcher to Reduce Redundant API Calls in Live Mode
+  description: Modify `src/market_data/fetcher.py` and `src/trading_engine.py` to
+    implement a caching mechanism that reduces redundant API calls. Use a simple in-memory
+    cache or leverage existing `src/cache_manager.py`. Verify the improvement by running
+    live mode and measuring the reduction in API call frequency.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T00:57:55Z'
+  completed_at: '2026-07-13T01:40:19Z'
+- id: imp-feb72af7
+  title: Enhance Logging for Strategy Execution Time in Live Mode
+  description: Add detailed logging to `src/strategy/base_strategy.py` and `src/trading_engine.py`
+    to measure the execution time of each strategy. Use Python's `time` module or
+    `logging_configurator.py` to log timestamps before and after strategy execution.
+    Verify the improvement by running live mode and checking the logs for accurate
+    timing.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T00:57:55Z'
+  completed_at: '2026-07-13T02:45:59Z'
+- id: imp-3e904cf0
+  title: Implement Concurrent Market Data Fetching in Live Mode
+  description: Modify `src/market_data/fetcher.py` and `src/trading_engine.py` to
+    use concurrent fetching for market data in live mode. Leverage `asyncio` or similar
+    libraries to fetch multiple data points simultaneously. Verify the improvement
+    by running live mode and measuring the reduction in data retrieval time.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T00:57:55Z'
+  completed_at: '2026-07-13T03:33:31Z'
+- id: imp-138452b2
+  title: Implement Concurrent Market Data Fetching in Backtest Mode
+  description: Enhance the `src/backtest/market_data_fetcher.py` module to support
+    concurrent fetching of market data during backtesting. Use asynchronous programming
+    (e.g., asyncio) to fetch multiple data points simultaneously, improving the speed
+    and efficiency of backtests. Verify the implementation by running a backtest with
+    historical data and comparing execution time before and after the change.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T03:34:27Z'
+  completed_at: '2026-07-13T04:18:59Z'
+- id: imp-ffa19e0c
+  title: Optimize Market Data Fetcher for Reduced Redundant API Calls
+  description: Modify `src/market_data/fetcher.py` to implement caching mechanisms
+    that store recently fetched market data. This will reduce the number of redundant
+    API calls by checking if the requested data is already available in the cache
+    before making a new request. Verify this optimization by running integration tests
+    and observing a reduction in the number of API calls made during backtest and
+    live trading modes.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T06:38:15Z'
+  completed_at: '2026-07-13T06:52:56Z'
+- id: imp-c0801b76
+  title: Add Detailed Logging for Market Data Fetching Time in Backtest Mode
+  description: Enhance `src/backtest/logger.py` to include detailed logging of the
+    time taken to fetch market data during backtesting. This will help in identifying
+    performance bottlenecks and verifying improvements made to the fetching process.
+    Verify by running backtests and checking the logs for accurate timing information.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T06:38:15Z'
+  completed_at: '2026-07-13T07:21:26Z'
+- id: imp-99d00895
+  title: Enhance Logging for Market Data Fetching Time in Live Mode
+  description: Add detailed logging for market data fetching time in live mode within
+    `src/backend/market_data_fetcher.py`. This will help in identifying performance
+    bottlenecks. Ensure that the logs are captured at the DEBUG level and verify by
+    checking the logs generated during a live run.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T07:39:35Z'
+  completed_at: '2026-07-13T08:38:01Z'
+- id: imp-d6247f00
+  title: Optimize Market Data Fetcher for Reduced API Calls in GUI Mode
+  description: Modify the market data fetcher used in the GUI mode to reduce redundant
+    API calls. Implement caching or rate limiting mechanisms similar to those used
+    in live and backtest modes. Verify by running the GUI and checking the number
+    of API requests made.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T08:40:54Z'
+  completed_at: '2026-07-13T09:22:53Z'
+- id: imp-a96dc3dc
+  title: Add Detailed Logging for Strategy Execution Time in GUI Mode
+  description: Implement detailed logging for strategy execution time within the GUI
+    mode. Use a similar approach to what has been done in live and backtest modes.
+    Verify by running the GUI and checking the logs for strategy execution times.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T08:40:54Z'
+  completed_at: '2026-07-13T09:39:00Z'
+- id: imp-e392bc10
+  title: Implement Concurrent Market Data Fetching in GUI Mode
+  description: Enable concurrent market data fetching in the GUI mode using asyncio,
+    similar to live and backtest modes. Verify by running the GUI and observing improved
+    responsiveness or reduced fetch times.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T08:40:54Z'
+  completed_at: '2026-07-13T10:01:40Z'
+- id: imp-d1e56fc6
+  title: Optimize Market Data Fetcher for Reduced Redundant API Calls in GUI Mode
+  description: Enhance the `src/market_data/fetcher.py` to include a caching mechanism
+    that stores recently fetched market data. This will reduce redundant API calls
+    and improve performance in GUI mode. Implement this by adding a simple cache dictionary
+    or leveraging an existing caching library like `functools.lru_cache`. Verify the
+    improvement by running integration tests and measuring the reduction in API call
+    count.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T10:04:20Z'
+  completed_at: '2026-07-13T11:09:20Z'
+- id: imp-30d40f9a
+  title: Implement Concurrent Market Data Fetching for Multiple Trading Pairs in Live
+    Mode
+  description: Modify the `src/backend/market_data_fetcher.py` to support concurrent
+    fetching of market data for multiple trading pairs using `asyncio`. This will
+    improve responsiveness and efficiency in live mode. Verify the implementation
+    by running integration tests and ensuring that data is fetched concurrently without
+    errors.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T10:04:20Z'
+  completed_at: '2026-07-13T11:18:08Z'
+- id: imp-41638a26
+  title: Add Detailed Logging for Market Data Fetching Time in GUI Mode
+  description: Enhance the `gui/market_data_fetcher.py` to include detailed logging
+    of market data fetching times. This will help in identifying performance bottlenecks
+    and optimizing further. Verify the implementation by checking the logs generated
+    during market data fetching.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T10:04:20Z'
+  completed_at: '2026-07-13T11:27:54Z'
+- id: imp-c02184cd
+  title: Implement stop-loss handling in the trading engine
+  description: Add stop-loss functionality to the trading engine to automatically
+    close positions when they reach a specified loss threshold. This will be implemented
+    in `src/trading_engine.py`. The agent can verify it works by adding unit tests
+    in `tests/unit/test_trading_engine.py` that simulate trades reaching their stop-loss
+    levels and ensure they are closed correctly.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T11:28:42Z'
+  completed_at: '2026-07-13T11:42:03Z'
+- id: imp-7d7fe2e7
+  title: Add take-profit handling in the trading engine
+  description: Implement take-profit functionality to automatically close positions
+    when they reach a specified profit threshold. This will be implemented in `src/trading_engine.py`.
+    The agent can verify it works by adding unit tests in `tests/unit/test_trading_engine.py`
+    that simulate trades reaching their take-profit levels and ensure they are closed
+    correctly.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T11:28:42Z'
+  completed_at: '2026-07-13T12:41:22Z'
+- id: imp-bf18cbce
+  title: Optimize market data fetching in backtest mode to reduce redundant API calls
+  description: Optimize the market data fetching mechanism in `src/backtest/market_data_fetcher.py`
+    to avoid redundant API calls by caching historical data. The agent can verify
+    it works by adding integration tests in `tests/integration/test_backtest_with_caching.py`
+    that ensure historical data is fetched only once and reused.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T11:28:42Z'
+  completed_at: '2026-07-13T12:58:27Z'
+- id: imp-2b5f72f0
+  title: Implement caching for market data in Backtest Mode
+  description: Caching market data can significantly reduce the time taken to load
+    historical data during backtests. This task involves adding a caching mechanism
+    to `src/backtest/market_data_fetcher.py` that stores fetched market data and retrieves
+    it from cache if available. The agent should verify this by running a backtest
+    with and without caching enabled, measuring the execution time difference.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T12:59:17Z'
+  completed_at: '2026-07-13T15:14:54Z'
+- id: imp-d27318a1
+  title: Optimize strategy signal generation in `moving_average_crossover_strategy.py`
+  description: The current implementation of the moving average crossover strategy
+    may not be optimized for performance. This task involves profiling and optimizing
+    the signal generation logic in `src/strategy/moving_average_crossover_strategy.py`.
+    The agent should use Python's built-in profiler to identify bottlenecks and optimize
+    them, verifying the improvement by comparing execution times before and after
+    optimization.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T12:59:17Z'
+  completed_at: '2026-07-13T15:34:08Z'
+- id: imp-93ec18a4
+  title: Add logging for cache hits and misses in `market_data_fetcher.py`
+  description: To better understand the effectiveness of caching, add detailed logging
+    for cache hits and misses in `src/backtest/market_data_fetcher.py`. This will
+    help in assessing the performance impact of caching. The agent should verify this
+    by running a backtest with caching enabled and checking the logs for cache hit/miss
+    statistics.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T12:59:17Z'
+  completed_at: '2026-07-13T15:51:38Z'
+- id: imp-133b4327
+  title: Implement concurrent market data fetching for multiple trading pairs in backtest
+    mode
+  description: Extend the `MarketDataFetcher` class in `src/backtest/market_data_fetcher.py`
+    to support concurrent fetching of market data for multiple trading pairs during
+    backtesting. This will improve performance by reducing the time taken to fetch
+    historical data for multiple pairs. Use Python's `asyncio` and `aiohttp` to achieve
+    concurrency. Verify the implementation by running backtests with multiple trading
+    pairs and ensuring that the data is fetched concurrently without errors.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T15:52:32Z'
+  completed_at: '2026-07-13T16:01:00Z'
+- id: imp-cca89597
+  title: Implement concurrent market data fetching for multiple trading pairs in GUI
+    mode
+  description: Modify the `gui/market_data_fetcher.py` to support concurrent market
+    data fetching for multiple trading pairs. This will improve performance by reducing
+    the time it takes to fetch data from multiple sources simultaneously. Use Python's
+    `asyncio` or `concurrent.futures` to achieve concurrency. Verify this works by
+    running the GUI and checking that market data is fetched concurrently without
+    errors.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T16:54:19Z'
+  completed_at: '2026-07-13T17:59:03Z'
+- id: imp-533831c0
+  title: Implement concurrent market data fetching for multiple trading pairs in Paper
+    Trading Mode
+  description: Extend the `PaperTradingEngine` to support concurrent market data fetching
+    for multiple trading pairs. This will improve performance by reducing the time
+    taken to fetch data for all trading pairs simultaneously. Modify `src/paper_trading_engine.py`
+    to include a method that uses asynchronous calls or threading to fetch market
+    data concurrently. Verify this by running the paper trading mode with multiple
+    trading pairs and measuring the reduction in data fetching time.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T17:59:54Z'
+  completed_at: '2026-07-13T19:00:12Z'
+- id: imp-ad2638b1
+  title: Optimize strategy signal generation in `ema_strategy.py` for faster execution
+  description: Profile the current implementation of the EMA (Exponential Moving Average)
+    strategy in `src/strategy/ema_strategy.py` to identify bottlenecks. Optimize these
+    parts to reduce execution time. This could involve algorithmic improvements or
+    code refactoring. Verify the optimization by comparing the execution time before
+    and after changes using performance logging.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T17:59:54Z'
+  completed_at: '2026-07-13T19:17:57Z'
+- id: imp-d34865ee
+  title: Implement Concurrent Market Data Fetching in Live Mode for Multiple Trading
+    Pairs
+  description: Enhance the `MarketDataFetcher` class in `src/market_data/fetcher.py`
+    to support concurrent fetching of market data for multiple trading pairs in live
+    mode. This will reduce the time taken to fetch data and improve responsiveness.
+    Use asynchronous programming techniques with `asyncio` to achieve concurrency.
+    Verify by running the bot in live mode and observing reduced data fetching times.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T19:18:44Z'
+  completed_at: '2026-07-13T19:29:53Z'
+- id: imp-a8a788af
+  title: Optimize Strategy Signal Generation for Faster Execution in `ema_strategy.py`
+  description: Refactor the signal generation logic in `src/strategy/ema_strategy.py`
+    to improve performance. Identify any bottlenecks or inefficient operations and
+    optimize them. Verify by running backtests and comparing execution times before
+    and after the changes.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T19:18:44Z'
+  completed_at: '2026-07-13T21:02:17Z'
+- id: imp-6af67c2b
+  title: Add Detailed Logging for Strategy Execution Time in Live Mode
+  description: Enhance logging in `src/trading_engine/trading_engine.py` to include
+    detailed timestamps and execution times for strategy signals. This will help in
+    performance analysis and debugging. Verify by running the bot in live mode and
+    checking the logs for detailed timing information.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T19:18:44Z'
+  completed_at: '2026-07-13T21:54:19Z'
+- id: imp-d3f2da2e
+  title: Optimize Market Data Fetcher for Reduced Redundant API Calls in Live Mode
+  description: Identify redundant API calls in the market data fetcher used in live
+    mode and implement caching or deduplication logic to reduce these calls. Modify
+    `src/market_data/fetcher.py` to include a cache mechanism that stores recently
+    fetched data and checks this cache before making new API requests. Verify the
+    improvement by comparing the number of API calls made before and after the change
+    using logging.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T21:55:16Z'
+  completed_at: '2026-07-13T22:09:13Z'
+- id: imp-450188f5
+  title: Add Detailed Logging for Market Data Fetching Time in Live Mode
+  description: Implement detailed logging to track the time taken for market data
+    fetching operations in live mode. Modify `src/market_data/fetcher.py` to include
+    timing logic that logs the duration of each fetch operation. Verify the improvement
+    by checking the logs and ensuring that the timing information is accurate and
+    consistent.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T21:55:16Z'
+  completed_at: '2026-07-13T22:22:52Z'
+- id: imp-59feaee1
+  title: Optimize Market Data Fetcher to Use Connection Pooling
+  description: Modify the `MarketDataFetcher` class in `src/market_data/fetcher.py`
+    to use connection pooling. This will reduce the overhead of establishing new connections
+    for each API call, improving performance. Implement this using a library like
+    `httpx` or `aiohttp`. Verify the improvement by comparing execution times before
+    and after the change.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T22:57:10Z'
+  completed_at: '2026-07-13T23:05:19Z'
+- id: imp-e7164006
+  title: Profile and Optimize Strategy Signal Generation in `ema_strategy.py`
+  description: Use the `cProfile` module to profile the `generate_signals` function
+    in `src/strategy/ema_strategy.py`. Identify any bottlenecks or slow sections of
+    code. Optimize these areas by refactoring or using more efficient algorithms.
+    Verify the improvement by comparing profiling results before and after optimization.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T22:57:10Z'
+  completed_at: '2026-07-13T23:24:21Z'
+- id: imp-f57fc7ba
+  title: Optimize Strategy Signal Generation for Faster Execution in `ema_strategy_optimized.py`
+  description: Refactor the signal generation logic in `src/strategy/ema_strategy_optimized.py`
+    to improve execution speed. Identify any bottlenecks or inefficient operations
+    and optimize them. Verify the optimization by profiling the strategy with `cProfile`
+    before and after changes, ensuring a measurable improvement.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-13T23:58:34Z'
+  completed_at: '2026-07-14T01:01:45Z'
+- id: imp-9bf64761
+  title: Optimize Strategy Signal Generation in `ema_strategy_optimized.py` for Faster
+    Execution
+  description: Further optimize the signal generation logic in `src/strategy/ema_strategy_optimized.py`
+    to reduce execution time. Identify any remaining bottlenecks or inefficient operations
+    within the strategy's signal generation process and apply optimizations such as
+    vectorized operations, algorithmic improvements, or parallelization where applicable.
+    Verify the improvement by running performance benchmarks before and after the
+    changes using `scripts/profile_generate_signals_optimized.py`.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-14T01:02:40Z'
+  completed_at: '2026-07-14T01:55:23Z'
+- id: imp-8514b1e1
+  title: Add Detailed Logging for Market Data Fetching Time in Paper Trading Mode
+  description: Enable detailed logging for market data fetching operations in `src/paper_trading_engine.py`.
+    Log the start time, end time, and duration of each fetch operation. Verify by
+    checking logs generated during paper trading mode execution.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-14T03:05:44Z'
+  completed_at: '2026-07-14T03:15:01Z'
+- id: imp-ce859de3
+  title: Implement Concurrent Market Data Fetching in Paper Trading Mode for Multiple
+    Trading Pairs
+  description: Modify `src/paper_trading_engine.py` to support concurrent fetching
+    of market data for multiple trading pairs using asynchronous operations. Verify
+    the implementation by running tests and ensuring that multiple requests are handled
+    concurrently.
+  project: crypto-trading-bot
+  priority: 45
+  status: completed
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-14T03:05:44Z'
+  completed_at: '2026-07-14T03:19:30Z'
+- id: imp-f619a108
+  title: Optimize Signal Generation for macd_strategy.py
+  description: Optimize the signal generation logic in `macd_strategy.py` to improve
+    execution speed. Profile the current implementation, identify bottlenecks, and
+    apply optimizations. Verify the improvement by comparing execution times before
+    and after optimization.
+  project: crypto-trading-bot
+  priority: 45
+  status: pending
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-14T06:09:50Z'
+- id: imp-7b840a90
+  title: Implement Detailed Logging for MACD Strategy Execution Time
+  description: Add detailed logging to `macd_strategy.py` to log the start time, end
+    time, and duration of each strategy execution. Enable this feature via a configuration
+    option in `config.json`. Verify that logs are correctly generated by checking
+    the logs file.
+  project: crypto-trading-bot
+  priority: 45
+  status: pending
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-14T06:09:50Z'
+- id: imp-7c7c1410
+  title: Profile and Optimize Market Data Fetcher in Live Mode
+  description: Profile the market data fetching process in live mode to identify performance
+    bottlenecks. Apply optimizations such as reducing redundant API calls, improving
+    caching mechanisms, or using connection pooling. Verify the improvement by comparing
+    profiling results before and after optimization.
+  project: crypto-trading-bot
+  priority: 45
+  status: pending
+  source: self-improve
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
+  created_at: '2026-07-14T06:09:50Z'

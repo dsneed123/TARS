@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# tars — CLI for talking to a running TARS controller (tasks, chat, projects).
+# For local daemon control (start/stop/status) see ./tars.sh instead.
+set -euo pipefail
+TARS_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TARS_HOME
+exec python3 "${TARS_HOME}/bin/tars-cli.py" "$@"

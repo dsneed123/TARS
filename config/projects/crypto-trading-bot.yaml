@@ -4,7 +4,7 @@ description: Autonomous cryptocurrency trading bot with GUI dashboard, no extern
 type: generic
 enabled: true
 git:
-  strategy: branch-pr
+  strategy: direct-main
   base_branch: main
   pr_labels:
   - tars-auto
@@ -13,7 +13,9 @@ git:
   author_email: 101902819+dsneed123@users.noreply.github.com
 build:
   type: generic
-  command: null
+  command: '[ -d venv ] || python3 -m venv venv; venv/bin/pip install -q ccxt && venv/bin/python
+    -c ''import sys; sys.path.insert(0,"src"); import backend, trading_engine, strategy,
+    risk_management'' && venv/bin/python -c ''import main'''
 test:
   command: null
 issues:
@@ -27,3 +29,9 @@ auto_discover:
 claude:
   model: sonnet
   max_turns: 20
+self_improve:
+  enabled: true
+  max_queued: 3
+  goal: 'continuously find and implement improvements and efficiencies: faster and
+    cleaner code paths, better algorithms, smarter resource use, and small features
+    that make the bot measurably better'
