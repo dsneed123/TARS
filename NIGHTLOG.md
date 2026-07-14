@@ -111,3 +111,39 @@ Until then `lib/llm.py:parse_text_tool_calls()` recovers the calls (tested, work
 
 Legacy paths (chat, discovery, go sessions) also moved to qwen3-coder via tars.conf, and
 auto-swap is now off by default — coder + router co-reside in 24GB of 119GB.
+
+## Milestone 2 — Repo cleanup
+
+**Line count: 19,974 → 15,058 (−4,916, −25%) — and that's INCLUDING the ~1,100 new
+lines of graph pipeline.** Everything below is in git history if ever needed.
+
+Deleted and why:
+- `lib/task_executor.py` + `plan_task/implement_task/review_quality/fix_error/review_code.md`
+  — the old linear pipeline; fully replaced by the graph. `self_review()` had zero callers.
+- `lib/dashboard.py` (1,423) + `bin/tars-dashboard.sh` — the old :8421 operator dashboard;
+  the controller on :8420 is the real one, this hadn't been running.
+- `lib/discord_bot.py` (1,019) + `discord_modes.py` + `image_handler.py` + `bin/tars-discord.sh`
+  — Discord BOT stack. No bot token was ever configured, and the stated convention is
+  webhook logging, not a bot. Webhook logger (`discord_logger.py`) stays.
+- `lib/options_scanner.py`, `stock_scanner.py`, `xcode_manager.py`, `plan_builder.py`
+  — zero imports anywhere; strays from earlier experiments.
+- `config/queue.yaml` + its fallback branches in config_loader/task_manager — the legacy
+  global queue; only per-project `config/queues/*.yaml` exist now. (Its 2 entries were
+  completed/cancelled — nothing migrated.)
+- `config/projects/notes-app.yaml` — duplicate of tars-notes-app (both repos created
+  within 5 min of each other on Jun 25; TARS only ever cloned tars-notes-app).
+- `bin/elephant.sh` — project-specific hack for a disabled project.
+- Stale `state/wtmp_*` temp files.
+
+Workflow judgments (mission asked for a verdict on each):
+- **daemon / scheduler / worker** — keep; worker is now a ~55-line shim over the graph.
+- **self-improve loop** (`improvement_loop.py`) — keep: it's the active task-generator for
+  crypto-trading-bot and orthogonal to the graph (it queues tasks; the graph runs them).
+- **auto-discover** (`task_manager.get_auto_discovered_tasks`) — keep: the website's
+  "discover" button calls it via `POST /api/projects/<name>/discover`. It shares the
+  suggestion-parsing with self-improve already.
+- **go sessions** (`go_runner.py`) — keep for now: the website's greenfield-build flow
+  drives it. Candidate for a later port onto the graph executor.
+- **chat engine** — keep (controller chat + soon the new CLI).
+- Prompts tightened: `self_improve.md` 92→40 lines, `discover_improvements.md` 54→30;
+  `go_*`/`discord_chat`/`create_project` were already tight.
